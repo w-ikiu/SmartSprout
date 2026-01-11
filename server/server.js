@@ -26,7 +26,7 @@ db.serialize(() => {
 // API
 
 // GET -> pobranie listy roslin
-app.get('api/plants', (req, res) => {
+app.get('/api/plants', (req, res) => {
     db.all("SELECT * FROM PLANTS", [], (err, rows) => {
         if (err) return res.status(500).json({error: err.message});
         res.json(rows);
