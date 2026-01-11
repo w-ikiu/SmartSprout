@@ -1,0 +1,1 @@
+SmartSprout to symulacja systemu monitorującego nawodnienie oraz stan roślin domowych. Projekt składa się z serwera, klienta webowego oraz symulatora czujników. System pozwala na zarządzanie kolekcją roślin, monitorowanie ich stanu oraz na inne dodatkowe funkcjonalności. 

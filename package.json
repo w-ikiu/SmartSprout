@@ -1,0 +1,28 @@
+{
+  "name": "smartsprout",
+  "version": "1.0.0",
+  "description": "SmartSprout to symulacja systemu monitorującego nawodnienie oraz stan roślin domowych. Projekt składa się z serwera, klienta webowego oraz symulatora czujników. System pozwala na zarządzanie kolekcją roślin, monitorowanie ich stanu oraz na inne dodatkowe funkcjonalności.",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/w-ikiu/SmartSprout.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/w-ikiu/SmartSprout/issues"
+  },
+  "homepage": "https://github.com/w-ikiu/SmartSprout#readme",
+  "dependencies": {
+    "body-parser": "^2.2.2",
+    "cors": "^2.8.5",
+    "express": "^5.2.1",
+    "mqtt": "^5.14.1",
+    "secure-remote-password": "^0.3.1",
+    "sqlite3": "^5.1.7"
+  }
+}
