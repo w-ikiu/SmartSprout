@@ -44,6 +44,17 @@ app.post('/api/plants', (req, res) => {
     });
 });
 
+// DELETE - usuwanie rosliny po ID
+app.delete('/api/plants/:id', (req, res) => {
+    const id = req.params.id; // pobieramy ID z adresu URL
+    
+    db.run("DELETE FROM plants WHERE id = ?", id, function(err) {
+        if (err) return res.status(500).json({error: err.message});
+        
+        res.json({ message: `Pomyślnie usunięto roślinę ID: ${id}.` });
+    });
+});
+
 // pliki z public
 app.use(express.static(path.join(__dirname, '../public')));
 
