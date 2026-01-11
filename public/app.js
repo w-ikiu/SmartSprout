@@ -11,16 +11,12 @@ async function loadPlants() {
         const div = document.createElement('div');
 
         // style
-        div.style.borderBottom = "1px solid #ccc";
-        div.style.padding = "10px";
-        div.style.display = "flex";
-        div.style.justifyContent = "space-between";
-        div.style.alignItems = "center";
+        div.className = 'plant-item';
 
         // nazwa i przycisk
         div.innerHTML = `
-            <span>🌱 ${plant.name} (ID: ${plant.id})</span>
-            <button onclick="deletePlant(${plant.id})" style="color: red; cursor: pointer;">Usuń</button>
+            <span>🌱 <b>${plant.name}</b> <small>(ID: ${plant.id})</small></span>
+            <button class="delete-btn" onclick="deletePlant(${plant.id})"">Usuń</button>
         `;
         list.appendChild(div);
     });
