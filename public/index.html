@@ -8,14 +8,30 @@
 <body>
     <h1>🌱 Smart Sprout</h1>
 
-    <div class="input-group">
-        <input type="text" id="plantName" placeholder="Wpisz nazwę rośliny...">
-        <button onclick="addPlant()">Dodaj</button>
+    <div id="loginView">
+        <div class="input-group">
+            <h3>Logowanie / Rejestracja</h3>
+            <input type="text" id="username" placeholder="Login">
+            <input type="password" id="password" placeholder="Hasło">
+            <button onclick="auth('login')">Zaloguj</button>
+            <button onclick="auth('register')" style="background:#555">Zarejestruj</button>
+        </div>
     </div>
 
-    <hr style="border: 0; margin: 20px 0;">
+    <div id="appView" style="display:none;">
+        
+        <div style="text-align: right; margin-bottom: 20px;">
+            Zalogowano jako: <b id="currentUser">...</b> (<span id="currentRole">...</span>)
+            <button onclick="logout()" style="background:#d32f2f">Wyloguj</button>
+        </div>
+        <div class="input-group">
+            <input type="text" id="plantName" placeholder="Nazwa rośliny...">
+            <button onclick="addPlant()">Dodaj Roślinę</button>
+        </div>
 
-    <div id="plantsList">Ładowanie...</div>
+        <hr style="border: 0; margin: 20px 0;">
+        <div id="plantsList">Ładowanie...</div>
+    </div>
 
     <script src="app.js"></script>
 </body>
