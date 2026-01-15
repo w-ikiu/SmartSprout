@@ -6,52 +6,55 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>Smart Sprout</h1>
+    <div class="header-container">
+        <img src="assets/smartsproutlogo.png" alt="Smart Sprout Logo">
 
-    <div id="loginView">
-        <div class="input-group">
-            <h3>Logowanie / Rejestracja</h3>
-            <input type="text" id="username" placeholder="Login">
-            <input type="password" id="password" placeholder="Hasło">
-            <button onclick="auth('login')">Zaloguj</button>
-            <button onclick="auth('register')" style="background:#555">Zarejestruj</button>
+        <div id="loginView">
+            <div class="input-group">
+                <h3>Logowanie / Rejestracja</h3>
+                <input type="text" id="username" placeholder="Login">
+                <input type="password" id="password" placeholder="Hasło">
+                
+                <button onclick="auth('login')">Zaloguj</button>
+                <button onclick="auth('register')" class="btn-secondary">Zarejestruj</button>
+            </div>
         </div>
+
     </div>
 
     <div id="appView" style="display:none;">
         
-        <div style="text-align: right; margin-bottom: 20px;">
-            Zalogowano jako: <b id="currentUser">...</b> (<span id="currentRole">...</span>)
-            <button onclick="logout()" style="background:#d32f2f">Wyloguj</button>
+        <div class="header-bar">
+            <div>
+                Zalogowano jako: <b id="currentUser">...</b> 
+                (<span id="currentRole">...</span>)
+            </div>
+            <button onclick="logout()" class="btn-danger">Wyloguj</button>
         </div>
 
-        <!-- dla admina -->
-        <div id="adminPanel" style="display:none; margin-bottom: 30px; border: 2px solid #2e7d32; padding: 15px; border-radius: 8px;">
-            <h3 style="margin-top:0;">Panel Administratora</h3>
-            <p>Kliknij na użytkownika, aby zobaczyć jego rośliny:</p>
+        <div id="adminPanel" style="display:none;">
+            <h3>Panel Administratora</h3>
+            <p>Kliknij na użytkownika, aby zobaczyć jego rośliny.</p>
             
-            <table id="usersTable" style="width:100%; border-collapse: collapse; background: white;">
+            <table id="usersTable">
                 <thead>
-                    <tr style="background: #e0e0e0; text-align: left;">
-                        <th style="padding: 10px;">ID</th>
-                        <th style="padding: 10px;">Login</th>
-                        <th style="padding: 10px;">Akcja</th>
+                    <tr>
+                        <th>ID</th>
+                        <th>Login</th>
+                        <th>Akcja</th>
                     </tr>
                 </thead>
                 <tbody id="usersListBody">
                     </tbody>
             </table>
-
-            <div id="adminMessage" style="color: blue; margin-top: 10px; font-weight: bold;"></div>
+            <div id="adminMessage"></div>
         </div>
 
-        <!-- dla uzytkownika -->
         <div id="userPanel" class="input-group">
             <input type="text" id="plantName" placeholder="Nazwa rośliny...">
-            <button onclick="addPlant()">Dodaj</button>
+            <button onclick="addPlant()">Dodaj Roślinę</button>
         </div>
 
-        <hr style="border: 0; margin: 20px 0;">
         <div id="plantsList">Ładowanie...</div>
     </div>
 

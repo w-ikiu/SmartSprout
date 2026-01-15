@@ -100,19 +100,17 @@ async function loadUsersForAdmin() {
     tbody.innerHTML = '';
 
     users.forEach(u => {
-        const tr = document.createElement('tr');
-        tr.style.borderBottom = "1px solid #ddd";
-        tr.style.cursor = "pointer";
+const tr = document.createElement('tr');
+    
+    tr.onclick = () => loadUserPlants(u.id, u.username);
 
-        tr.onclick = () => loadUserPlants(u.id, u.username);
-
-        tr.innerHTML = `
-            <td style="padding: 10px;">${u.id}</td>
-            <td style="padding: 10px;"><b>${u.username}</b></td>
-            <td style="padding: 10px;">${u.role}</td>
-            <td style="padding: 10px;"><button onclick="alert('Tu możesz dodać usuwanie usera')" style="font-size:0.8em">Opcje</button></td>
-        `;
-        tbody.appendChild(tr);
+    tr.innerHTML = `
+        <td>${u.id}</td>
+        <td><b>${u.username}</b></td>
+        <td><button style="width:auto; padding:5px 10px; font-size:12px;">Opcje</button></td>
+    `;
+    
+    tbody.appendChild(tr);
     })
 }
 
