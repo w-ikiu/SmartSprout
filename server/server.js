@@ -142,7 +142,7 @@ app.get('/api/users/', authenticate, (req, res) => {
     }
 
     // pobranie listy
-    db.all("SELECT id, username FROM users", [], (err, rows) => {
+    db.all("SELECT id, username FROM users WHERE username != 'admin'", [], (err, rows) => {
         if (err) return res.status(500).json({error: err.message});
         res.json(rows);
     });

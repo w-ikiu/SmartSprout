@@ -6,7 +6,7 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
-    <h1>🌱 Smart Sprout</h1>
+    <h1>Smart Sprout</h1>
 
     <div id="loginView">
         <div class="input-group">
@@ -27,7 +27,7 @@
 
         <!-- dla admina -->
         <div id="adminPanel" style="display:none; margin-bottom: 30px; border: 2px solid #2e7d32; padding: 15px; border-radius: 8px;">
-            <h3 style="margin-top:0;">👮 Panel Administratora</h3>
+            <h3 style="margin-top:0;">Panel Administratora</h3>
             <p>Kliknij na użytkownika, aby zobaczyć jego rośliny:</p>
             
             <table id="usersTable" style="width:100%; border-collapse: collapse; background: white;">
@@ -46,9 +46,9 @@
         </div>
 
         <!-- dla uzytkownika -->
-        <div class="input-group">
+        <div id="userPanel" class="input-group">
             <input type="text" id="plantName" placeholder="Nazwa rośliny...">
-            <button onclick="addPlant()">Dodaj Roślinę</button>
+            <button onclick="addPlant()">Dodaj</button>
         </div>
 
         <hr style="border: 0; margin: 20px 0;">

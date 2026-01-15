@@ -8,6 +8,7 @@ if (TOKEN) {
     showApp();
 }
 
+// AUTH
 // logowanie/rejestracja
 async function auth(action) {
     // action to 'login' albo 'register'
@@ -89,28 +90,7 @@ async function loadPlants(queryParams = '') {
     });
 }
 
-// SHOW APP
-// wyswietlanie aplikacji
-function showApp() {
-    // ukrycie logowania i wyswietlenie aplikacji po zalogowaniu uzytkownika
-    document.getElementById('loginView').style.display = 'none';
-    document.getElementById('appView').style.display = 'block';
-    
-    // dane uzytkownika
-    document.getElementById('currentUser').innerText = USERNAME;
-    document.getElementById('currentRole').innerText = ROLE;
-
-    // admin
-    if (ROLE === 'admin') {
-        document.getElementById('adminPanel').style.display = 'block';
-        loadUsersForAdmin();
-    // uzytkownik widzi rosliny
-    } else {
-        document.getElementById('adminPanel').style.display = 'none';
-        loadPlants();
-    }
-}
-
+// LOAD USERS FOR ADMIN
 // wyswietlanie uzytkownikow dla admina
 async function loadUsersForAdmin() {
     const res = await fetch('/api/users', { headers: {'Authorization': TOKEN} });
@@ -142,6 +122,7 @@ async function loadUserPlants(userId, username) {
     loadPlants(`?userId=${userId}`);
 }
 
+// ADD PLANT
 // dodawanie roslin
 async function addPlant() {
     const nameInput = document.getElementById('plantName');
@@ -159,6 +140,7 @@ async function addPlant() {
     loadPlants(); // odswiezenie listy po dodaniu nowej rosliny
 }
 
+// DELETE PLANT
 // usuwanie rosliny
 async function deletePlant(id) {
     // potwierdzenie usuniecia
@@ -172,4 +154,30 @@ async function deletePlant(id) {
 
     // odswiezenie listy po usunieciu
     loadPlants();
+}
+
+// SHOW APP
+// wyswietlanie aplikacji
+function showApp() {
+    // ukrycie logowania i wyswietlenie aplikacji po zalogowaniu uzytkownika
+    document.getElementById('loginView').style.display = 'none';
+    document.getElementById('appView').style.display = 'block';
+    
+    // dane uzytkownika
+    document.getElementById('currentUser').innerText = USERNAME;
+    document.getElementById('currentRole').innerText = ROLE;
+
+    // admin
+    if (ROLE === 'admin') {
+        document.getElementById('adminPanel').style.display = 'block';
+        // ukrycie dodawania roslin i funkcjonalnosci uzytkownikow dla admina
+        document.getElementById('userPanel').style.display = 'none';
+        document.getElementById('plantsList').innerHTML = '<p>Kliknij użytkownika powyżej, aby zobaczyć jego rośliny.</p>';
+        loadUsersForAdmin();
+    // uzytkownik widzi rosliny
+    } else {
+        document.getElementById('adminPanel').style.display = 'none';
+        document.getElementById('userPanel').style.display = 'flex';
+        loadPlants();
+    }
 }
