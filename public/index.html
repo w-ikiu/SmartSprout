@@ -24,6 +24,28 @@
             Zalogowano jako: <b id="currentUser">...</b> (<span id="currentRole">...</span>)
             <button onclick="logout()" style="background:#d32f2f">Wyloguj</button>
         </div>
+
+        <!-- dla admina -->
+        <div id="adminPanel" style="display:none; margin-bottom: 30px; border: 2px solid #2e7d32; padding: 15px; border-radius: 8px;">
+            <h3 style="margin-top:0;">👮 Panel Administratora</h3>
+            <p>Kliknij na użytkownika, aby zobaczyć jego rośliny:</p>
+            
+            <table id="usersTable" style="width:100%; border-collapse: collapse; background: white;">
+                <thead>
+                    <tr style="background: #e0e0e0; text-align: left;">
+                        <th style="padding: 10px;">ID</th>
+                        <th style="padding: 10px;">Login</th>
+                        <th style="padding: 10px;">Akcja</th>
+                    </tr>
+                </thead>
+                <tbody id="usersListBody">
+                    </tbody>
+            </table>
+
+            <div id="adminMessage" style="color: blue; margin-top: 10px; font-weight: bold;"></div>
+        </div>
+
+        <!-- dla uzytkownika -->
         <div class="input-group">
             <input type="text" id="plantName" placeholder="Nazwa rośliny...">
             <button onclick="addPlant()">Dodaj Roślinę</button>

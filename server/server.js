@@ -131,7 +131,22 @@ app.post('/api/logout', (req, res) => {
     res.json({ success: true });
 });
 
-// API DLA ADMINA -> do zrobienia
+// API DLA ADMINA
+
+// lista wszystkich uzytkownikow
+app.get('/api/users/', authenticate, (req, res) => {
+
+    // jesli rola to nie admin
+    if (req.user.role !== "admin") {
+        return res.status(403).json({error: "Brak uprawnień administratora."});
+    }
+
+    // pobranie listy
+    db.all("SELECT id, username FROM users", [], (err, rows) => {
+        if (err) return res.status(500).json({error: err.message});
+        res.json(rows);
+    });
+});
 
 // ENDPOINTY ROSLIN
 
@@ -141,10 +156,15 @@ app.get('/api/plants', authenticate, (req, res) => {
     let sql = "SELECT * FROM plants";
     let params = [];
 
-    // dodanie warunku dla uzytkownika ze widzi tylko swoje rosliny
-    if (req.user.role !== 'admin') {
-        sql += " WHERE owner_id = ?";
-        params.push(req.user.userId);
+    // logika filtrowania dla admina
+    if (req.user.role === "admin") {
+        if (req.query.userId) {
+            sql += " WHERE owner_id = ?";
+            params.push(req.query.userId)
+        } else {
+            sql += " WHERE owner_id = ?";
+            params.push(req.user.userId)
+        }
     }
 
     db.all(sql, params, (err, rows) => {
