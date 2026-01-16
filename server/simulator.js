@@ -11,31 +11,51 @@ const db_path = path.join(__dirname, '../data/database.db');
 const db = new sqlite3.Database(db_path);
 
 // pamiec podreczna stanu roslin (symulacja stanu)
-// { plantId: { humidity: 80, temp: 22 } }
 let plantsState = {};
 
 const WATERING_SPEED = 20; // ile % przybywa w jednym cyklu przy podlewaniu
 const DRYING_SPEED = 2; // ile % ubywa w normalnym czasie bez podlewania
 
 client.on('connect', () => {
-    console.log("Symulator połączony z MQTT");
+    console.log("Symulator połączony.");
     
-    // nasluchiwanie na komendy podlewania dla wszystkich roslin
+    // nasluchiwanie na wszystkie komendy
     client.subscribe('smartsprout/plant/+/water');
+    client.subscribe('smartsprout/plant/+/heater');
+    client.subscribe('smartsprout/plant/+/fan');
     
-    // petla symulacji co 5 sekund
+    // petla symulacji co 1 sekunde
     setInterval(simulateLoop, 1000);
 });
 
-// obsluga komendy podlewania (subscriber)
+// obsluga komend z serwera (subscriber)
 client.on('message', (topic, message) => {
-    // topic: smartsprout/plant/5/water
-    const plantId = topic.split('/')[2];
-    console.log(`Otrzymano sygnał podlewania dla rośliny ID: ${plantId}`);
-    
-    // zaczyna sie podlewanie
-    if (plantsState[plantId]) {
-        plantsState[plantId].isWatering = true;
+    try {
+        const parts = topic.split('/');
+        const plantId = parts[2];
+        const action = parts[3]; // 'water', 'heater' lub 'fan'
+        
+        // inicjalizacja jesli nie istnieje
+        if (!plantsState[plantId]) return;
+
+        const payload = JSON.parse(message.toString());
+
+        if (action === 'water') {
+            console.log(`[ID ${plantId}] Podlewanie...`);
+            plantsState[plantId].isWatering = true;
+        } 
+        else if (action === 'heater') {
+            // grzejnik wlaczony lub wylaczony
+            plantsState[plantId].heaterOn = (payload.status === 'ON');
+            console.log(`[ID ${plantId}] Grzejnik: ${payload.status}`);
+        } 
+        else if (action === 'fan') {
+            // wentylator wlaczony lub wylaczony
+            plantsState[plantId].fanOn = (payload.status === 'ON');
+            console.log(`[ID ${plantId}] Wentylator: ${payload.status}`);
+        }
+    } catch (e) {
+        console.error("Blad odczytu komendy:", e);
     }
 });
 
@@ -50,50 +70,62 @@ function simulateLoop() {
             // inicjalizacja dla nowej rosliny
             if (!plantsState[id]) {
                 plantsState[id] = { 
-                    humidity: 100, 
+                    humidity: 50, 
                     temp: 20 + Math.random() * 5,
-                    isWatering: false // domyslnie roslina nie jest podlewana
+                    isWatering: false,
+                    heaterOn: false, // domyslnie wylaczone
+                    fanOn: false
                 };
             }
 
             // logika zmian stanu roslin
 
+            // 1. wilgotnosc
             if (plantsState[id].isWatering) {
                 // dla trybu PODLEWANIA
                 plantsState[id].humidity += WATERING_SPEED;
+                plantsState[id].temp -= 0.2;
                 
-                // spadek temperatury przy podlewaniu
-                plantsState[id].temp -= 0.2; 
-
                 // czy pelne nawodnienie
                 if (plantsState[id].humidity >= 100) {
                     plantsState[id].humidity = 100;
-                    plantsState[id].isWatering = false; // koniec podlewania
-                    console.log(`Roślina ID ${id} w pełni nawodniona.`);
+                    plantsState[id].isWatering = false;
                 }
-
             } else {
                 // dla trybu WYSYCHANIA
-                // losowo od 0 do DRYING_SPEED
                 let drop = Math.floor(Math.random() * DRYING_SPEED) + 1;
-                plantsState[id].humidity -= drop;
                 
+                // jesli wiatrak wlaczony to schnie szybciej
+                if (plantsState[id].fanOn) drop += 5; 
+                
+                plantsState[id].humidity -= drop;
+
                 // zeby wilgotnosc nie byla ujemna
                 if (plantsState[id].humidity < 0) plantsState[id].humidity = 0;
-
+                
+                // wahania temperatury
                 let tempChange = (Math.random() - 0.5); 
                 plantsState[id].temp += tempChange;
             }
 
+            // 2. temperatura (reakcja na grzejnik)
+            if (plantsState[id].heaterOn) {
+                plantsState[id].temp += 1.5; // szybko rosne jak grzeje
+            }
+
             // ograniczniki temperatury
-            if(plantsState[id].temp < 15) plantsState[id].temp = 15;
-            if(plantsState[id].temp > 30) plantsState[id].temp = 30;
+            if(plantsState[id].temp < 10) plantsState[id].temp = 10;
+            if(plantsState[id].temp > 35) plantsState[id].temp = 35;
+
 
             // "publikacja" wynikow
             const topic = `smartsprout/plant/${id}/data`;
+            // wazne: wysylamy stan heater/fan z powrotem do serwera
             const payload = JSON.stringify({
                 temp: plantsState[id].temp.toFixed(1),
-                humidity: plantsState[id].humidity
+                humidity: plantsState[id].humidity,
+                heater: plantsState[id].heaterOn,
+                fan: plantsState[id].fanOn
             });
 
             client.publish(topic, payload);

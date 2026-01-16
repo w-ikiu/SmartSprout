@@ -75,8 +75,8 @@ async function loadPlants(queryParams = '') {
     const list = document.getElementById('plantsList');
     list.innerHTML = '';
 
-    if(plants.length === 0) {
-        list.innerHTML = '<p>Brak roślin do wyświetlenia.</p>';
+    if (plants.length === 0) {
+        list.innerHTML = '<p class="empty-list">Brak roślin do wyświetlenia.</p>';
         return;
     }
 
@@ -88,12 +88,12 @@ async function loadPlants(queryParams = '') {
 
         // html dla statusow
         const heaterHtml = p.heater_status === 1
-            ? `<span class="status-badge status-on-heat">🔥 GRZEJE</span>`
-            : `<span class="status-badge status-off">⚪ Wył.</span>`;
+            ? `<span class="status-badge status-on-heat">HEATER: ON</span>`
+            : `<span class="status-badge status-off">HEATER: OFF</span>`;
 
         const fanHtml = p.fan_status === 1
-            ? `<span class="status-badge status-on-fan">💨 WIEJE</span>`
-            : `<span class="status-badge status-off">⚪ Wył.</span>`;
+            ? `<span class="status-badge status-on-fan">FAN: ON</span>`
+            : `<span class="status-badge status-off">FAN: OFF</span>`;
 
         // budowanie kafelka
         const div = document.createElement('div');

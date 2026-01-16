@@ -37,36 +37,48 @@ mqttClient.on('message', (topic, message) => {
         // np. topic: smartsprout/plant/1/data
         // data: { temp: 22.5, humidity: 40 }
         
-        const plantId = topic.split('/')[2]; // wyciagamy ID z tematu
+        const topicParts = topic.split('/');
+        const plantId = topicParts[2];
 
-        const temp = parseFloat(payload.temp);
-        const hum = parseInt(payload.humidity);
-        
-        // aktualizacja stanu rosliny do bazy
-        db.run("UPDATE plants SET temperature = ?, humidity = ?, heater_status = ?, fan_status = ? WHERE id = ?", 
-            [temp, hum, payload.heater ? 1 : 0, payload.fan ? 1 : 0, plantId]
-        );
+        if (topicParts[3] === 'data') {
+            
+            const temp = parseFloat(payload.temp);
+            const hum = parseInt(payload.humidity);
+            
+            // konwersja boolean (true/false) na int (1/0) dla SQLite
+            const heaterVal = payload.heater ? 1 : 0;
+            const fanVal = payload.fan ? 1 : 0;
 
-        // automatyczna logika ogrzewania i wentylacji w zaleznosci od odczytow
+            // aktualizacja bazy
+            db.run(
+                "UPDATE plants SET temperature = ?, humidity = ?, heater_status = ?, fan_status = ? WHERE id = ?", 
+                [temp, hum, heaterVal, fanVal, plantId],
+                (err) => {
+                    if (err) console.error("Błąd SQL:", err.message);
+                }
+            );
 
-        // ogrzewanie
-        if (temp < 15 && !payload.heater) {
-            console.log(`Zimno (${temp}°C)! Włączam grzejnik dla ID ${plantId}`);
-            mqttClient.publish(`smartsprout/plant/${plantId}/heater`, JSON.stringify({status: 'ON'}));
-        } 
-        else if (temp > 25 && payload.heater) {
-            console.log(`Ciepło (${temp}°C). Wyłączam grzejnik dla ID ${plantId}`);
-            mqttClient.publish(`smartsprout/plant/${plantId}/heater`, JSON.stringify({status: 'OFF'}));
-        }
+            // logika smart home
 
-        // wentylacja
-        if (hum > 90 && !payload.fan) {
-            console.log(`Wilgotno (${hum}%)! Włączam wentylator dla ID ${plantId}`);
-            mqttClient.publish(`smartsprout/plant/${plantId}/fan`, JSON.stringify({status: 'ON'}));
-        }
-        else if (hum < 60 && payload.fan) {
-            console.log(`Sucho (${hum}%), Wyłączam wentylator dla ID ${plantId}`);
-            mqttClient.publish(`smartsprout/plant/${plantId}/fan`, JSON.stringify({status: 'OFF'}));
+            // ogrzewanie
+            if (temp < 15 && !payload.heater) {
+                console.log(`Zimno (${temp}°C)! Włączam grzejnik [ID ${plantId}]`);
+                mqttClient.publish(`smartsprout/plant/${plantId}/heater`, JSON.stringify({status: 'ON'}));
+            } 
+            else if (temp > 25 && payload.heater) {
+                console.log(`Ciepło (${temp}°C). Wyłączam grzejnik [ID ${plantId}]`);
+                mqttClient.publish(`smartsprout/plant/${plantId}/heater`, JSON.stringify({status: 'OFF'}));
+            }
+
+            // wentylacja
+            if (hum > 90 && !payload.fan) {
+                console.log(`Wilgotno (${hum}%)! Włączam wentylator [ID ${plantId}]`);
+                mqttClient.publish(`smartsprout/plant/${plantId}/fan`, JSON.stringify({status: 'ON'}));
+            }
+            else if (hum < 60 && payload.fan) {
+                console.log(`Sucho (${hum}%), Wyłączam wentylator [ID ${plantId}]`);
+                mqttClient.publish(`smartsprout/plant/${plantId}/fan`, JSON.stringify({status: 'OFF'}));
+            }
         }
 
         // logowania do tabeli logs do zrobienia
