@@ -3,6 +3,9 @@ let TOKEN = localStorage.getItem('token');
 let ROLE = localStorage.getItem('role');
 let USERNAME = localStorage.getItem('username');
 
+// interwal odswiezania aplikacji zeby wilgotnosc spadala in real time
+let refreshInterval = null;
+
 // jezeli uzytkownik jest zalogowany to pokazujemy aplikacje
 if (TOKEN) {
     showApp();
@@ -78,13 +81,26 @@ async function loadPlants(queryParams = '') {
     }
 
     plants.forEach(p => {
+        // kolor paska wilgotnosci
+        let humColor = '#4CAF50';
+        if(p.humidity < 30) humColor = '#FF9800';
+        if(p.humidity < 10) humColor = '#F44336';
+
         const div = document.createElement('div');
         div.className = 'plant-item';
         div.innerHTML = `
             <span>
-                🌱 <b>${p.name}</b> 
+                🌱 <b>${p.name}</b> <br>
+                <small>🌡️ Temperatura: ${p.temperature}°C</small> <br>
+                <small>💧 Wilgotność: ${p.humidity}%</small>
+                <div style="background:#ddd; height:5px; border-radius:2px; margin-top:5px;">
+                    <div style="background:${humColor}; width:${p.humidity}%; height:100%; border-radius:2px; transition:width 0.5s;"></div>
+                </div>
             </span>
-            <button class="delete-btn" onclick="deletePlant(${p.id})">Usuń</button>
+            <div style="margin-top:10px;">
+                <button onclick="waterPlant(${p.id})" style="background:#2196F3; width:auto; padding:5px 10px; font-size:12px; margin-right:5px;">💦 Podlej</button>
+                <button class="delete-btn" onclick="deletePlant(${p.id})">Usuń</button>
+            </div>
         `;
         list.appendChild(div);
     });
@@ -154,6 +170,19 @@ async function deletePlant(id) {
     loadPlants();
 }
 
+// WATER PLANT
+// podlewanie rosliny
+async function waterPlant(id) {
+    const res = await fetch(`/api/plants/${id}/water`, {
+        method: 'POST',
+        headers: { 'Authorization': TOKEN }
+    });
+    const data = await res.json();
+    if(data.success) {
+        setTimeout(loadPlants, 500); 
+    }
+}
+
 // SHOW APP
 // wyswietlanie aplikacji
 function showApp() {
@@ -164,6 +193,9 @@ function showApp() {
     // dane uzytkownika
     document.getElementById('currentUser').innerText = USERNAME;
     document.getElementById('currentRole').innerText = ROLE;
+
+    // czyszczenie timera jesli jakis byl
+    if (refreshInterval) clearInterval(refreshInterval)
 
     // admin
     if (ROLE === 'admin') {
@@ -177,5 +209,8 @@ function showApp() {
         document.getElementById('adminPanel').style.display = 'none';
         document.getElementById('userPanel').style.display = 'flex';
         loadPlants();
+        refreshInterval = setInterval(() => {
+            loadPlants();
+        }, 1000);
     }
 }

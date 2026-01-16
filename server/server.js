@@ -7,6 +7,8 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs'); 
 // do generowania tokenow
 const { v4: uuidv4 } = require('uuid');
+// mqtt
+const mqtt = require('mqtt');
 
 const app = express();
 const PORT = 3000;
@@ -16,6 +18,42 @@ app.use(cors());
 // do obslugi json
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, '../public')));
+
+// KONFIGURACJA MQTT
+// nie instaluje na razie hiveMQ lokalnie
+const MQTT_BROKER = 'mqtt://test.mosquitto.org'; 
+const mqttClient = mqtt.connect(MQTT_BROKER);
+
+mqttClient.on('connect', () => {
+    console.log("Połączono z brokerem MQTT");
+    // serwer nasluchuje danych od wszystkich roslin
+    mqttClient.subscribe('smartsprout/plant/+/data');
+});
+
+// kiedy przychodzi wiadomosc z czujnika
+mqttClient.on('message', (topic, message) => {
+    try {
+        const data = JSON.parse(message.toString());
+        // np. topic: smartsprout/plant/1/data
+        // data: { temp: 22.5, humidity: 40 }
+        
+        const plantId = topic.split('/')[2]; // wyciagamy ID z tematu
+        
+        // aktualizacja stanu rosliny do bazy
+        db.run("UPDATE plants SET temperature = ?, humidity = ? WHERE id = ?", 
+            [data.temp, data.humidity, plantId], 
+            (err) => {
+                if (err) console.error("Błąd zapisu MQTT:", err.message);
+                else console.log(`Odebrano dane dla rośliny ID ${plantId}: Wilgotność ${data.humidity}%`);
+            }
+        );
+
+        // logowania do tabeli logs do zrobienia
+
+    } catch (e) {
+        console.error("Błąd przetwarzania wiadomości MQTT:", e);
+    }
+});
 
 // BAZA DANYCH
 const db_path = path.join(__dirname, '../data/database.db');
@@ -48,7 +86,9 @@ db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS plants (
         id INTEGER PRIMARY KEY,
         name TEXT,
-        owner_id INTEGER
+        owner_id INTEGER,
+        temperature REAL DEFAULT 0,
+        humidity INTEGER DEFAULT 100
     )`);
 
     // testowa roslina
@@ -148,7 +188,7 @@ app.get('/api/users/', authenticate, (req, res) => {
     });
 });
 
-// ENDPOINTY ROSLIN
+// API ROSLIN
 
 // GET -> pobranie listy roslin
 app.get('/api/plants', authenticate, (req, res) => {
@@ -173,7 +213,7 @@ app.get('/api/plants', authenticate, (req, res) => {
     });
 });
 
-// POST - dodanie rosliny do listy
+// POST -> dodanie rosliny do listy
 app.post('/api/plants', authenticate, (req, res) => {
     const { name } = req.body;
     if (!name) return res.status(400).json({error: "Nie podano nazwy."});
@@ -188,7 +228,7 @@ app.post('/api/plants', authenticate, (req, res) => {
     );
 });
 
-// DELETE - usuwanie rosliny po ID
+// DELETE -> usuwanie rosliny po ID
 app.delete('/api/plants/:id', authenticate, (req, res) => {
     const id = req.params.id;
     
@@ -196,14 +236,25 @@ app.delete('/api/plants/:id', authenticate, (req, res) => {
     db.get("SELECT owner_id FROM plants WHERE id = ?", [id], (err, plant) => {
         if (!plant) return res.status(404).json({error: "Nie znaleziono rośliny"});
 
-        if (req.user.role !== 'admin' && plant.owner_id !== req.user.userId) {
-            return res.status(403).json({error: "Nie masz uprawnień do usunięcia tej rośliny!"});
-        }
-
         db.run("DELETE FROM plants WHERE id = ?", id, function(err) {
             if (err) return res.status(500).json({error: err.message});
             res.json({ message: `Usunięto roślinę ID: ${id}` });
         });
+    });
+});
+
+// POST -> symulacja podlewania roslin
+app.post('/api/plants/:id/water', authenticate, (req, res) => {
+    const id = req.params.id;
+    
+    // serwer wysyla komende o podlaniu danej rosliny przez MQTT
+    // symulator podlewania zmienia wilgotonosc
+    const topic = `smartsprout/plant/${id}/water`;
+    const message = JSON.stringify({ action: "WATER_ON", duration: 5 });
+    
+    mqttClient.publish(topic, message, () => {
+        console.log(`Wysłano komendę podlewania dla rośliny o ID: ${id}`);
+        res.json({ success: true, message: "Podlewanie uruchomione..." });
     });
 });
 
