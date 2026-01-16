@@ -14,6 +14,9 @@ const db = new sqlite3.Database(db_path);
 // { plantId: { humidity: 80, temp: 22 } }
 let plantsState = {};
 
+const WATERING_SPEED = 20; // ile % przybywa w jednym cyklu przy podlewaniu
+const DRYING_SPEED = 2; // ile % ubywa w normalnym czasie bez podlewania
+
 client.on('connect', () => {
     console.log("Symulator połączony z MQTT");
     
@@ -21,52 +24,68 @@ client.on('connect', () => {
     client.subscribe('smartsprout/plant/+/water');
     
     // petla symulacji co 5 sekund
-    setInterval(simulateLoop, 5000);
+    setInterval(simulateLoop, 1000);
 });
 
-// Obsługa komendy podlewania (Subscriber)
+// obsluga komendy podlewania (subscriber)
 client.on('message', (topic, message) => {
     // topic: smartsprout/plant/5/water
     const plantId = topic.split('/')[2];
-    console.log(`💦 Otrzymano sygnał podlewania dla rośliny ID: ${plantId}`);
+    console.log(`Otrzymano sygnał podlewania dla rośliny ID: ${plantId}`);
     
-    // "Fizyczne" nawodnienie gleby do 100%
+    // zaczyna sie podlewanie
     if (plantsState[plantId]) {
-        plantsState[plantId].humidity = 100;
-        // Opcjonalnie: lekkie ochłodzenie gleby po podlaniu
-        plantsState[plantId].temp -= 1;
+        plantsState[plantId].isWatering = true;
     }
 });
 
 function simulateLoop() {
-    // 1. Pobierz aktualną listę roślin z bazy (gdyby ktoś dodał nową)
+    // pobranie listy roslin z bazy
     db.all("SELECT id FROM plants", [], (err, rows) => {
         if (err) return;
 
         rows.forEach(row => {
             const id = row.id;
 
-            // Jeśli nie mamy tej rośliny w pamięci, inicjalizujemy ją
+            // inicjalizacja dla nowej rosliny
             if (!plantsState[id]) {
                 plantsState[id] = { 
-                    humidity: 100, // Startowa wilgotność
-                    temp: 20 + Math.random() * 5 // Losowa temp 20-25 stopni
+                    humidity: 100, 
+                    temp: 20 + Math.random() * 5,
+                    isWatering: false // domyslnie roslina nie jest podlewana
                 };
             }
 
-            // 2. SYMULACJA ZMIAN (Fizyka)
-            
-            // Wilgotność spada (ziemia wysycha)
-            // Losowo od 1 do 3% co cykl
-            let drop = Math.floor(Math.random() * 3) + 1;
-            plantsState[id].humidity -= drop;
-            if (plantsState[id].humidity < 0) plantsState[id].humidity = 0;
+            // logika zmian stanu roslin
 
-            // Temperatura się waha (symulacja dnia/pogody z internetu)
-            // Zmieniamy o -0.5 do +0.5 stopnia
-            let tempChange = (Math.random() - 0.5); 
-            plantsState[id].temp += tempChange;
-            // ograniczniki, temperatura nie moze przekroczyc niektorych danych
+            if (plantsState[id].isWatering) {
+                // dla trybu PODLEWANIA
+                plantsState[id].humidity += WATERING_SPEED;
+                
+                // spadek temperatury przy podlewaniu
+                plantsState[id].temp -= 0.2; 
+
+                // czy pelne nawodnienie
+                if (plantsState[id].humidity >= 100) {
+                    plantsState[id].humidity = 100;
+                    plantsState[id].isWatering = false; // koniec podlewania
+                    console.log(`Roślina ID ${id} w pełni nawodniona.`);
+                }
+
+            } else {
+                // dla trybu WYSYCHANIA
+                // losowo od 0 do DRYING_SPEED
+                let drop = Math.floor(Math.random() * DRYING_SPEED) + 1;
+                plantsState[id].humidity -= drop;
+                
+                // zeby wilgotnosc nie byla ujemna
+                if (plantsState[id].humidity < 0) plantsState[id].humidity = 0;
+
+                let tempChange = (Math.random() - 0.5); 
+                plantsState[id].temp += tempChange;
+            }
+
+            // ograniczniki temperatury
             if(plantsState[id].temp < 15) plantsState[id].temp = 15;
             if(plantsState[id].temp > 30) plantsState[id].temp = 30;
 
@@ -78,7 +97,6 @@ function simulateLoop() {
             });
 
             client.publish(topic, payload);
-            console.log(`Wysłano [${topic}]: ${payload}`);
         });
     });
 }
