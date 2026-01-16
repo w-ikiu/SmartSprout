@@ -132,6 +132,117 @@ input:focus {
     background-color: white;
 }
 
+/* kafelek rosliny */
+
+.plant-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 10px;
+}
+
+.plant-name {
+    font-size: 1.2em;
+    font-weight: 700;
+    color: var(--dark-green);
+}
+
+.plant-stats {
+    font-size: 0.9em;
+    color: var(--text-gray);
+    display: grid;
+    gap: 8px;
+}
+
+.stat-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.status-badge {
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-weight: 600;
+    font-size: 0.8em;
+    border: 1px solid;
+}
+
+.status-on-heat {
+    color: #FF5252;
+    border-color: #FF5252;
+    background-color: rgba(255, 82, 82, 0.1);
+}
+
+.status-on-fan {
+    color: #2196F3;
+    border-color: #2196F3;
+    background-color: rgba(33, 150, 243, 0.1);
+}
+
+.status-off {
+    color: #90A4AE;
+    border-color: #CFD8DC;
+    background-color: transparent;
+}
+
+.humidity-bar-container {
+    background-color: #F1F3F4;
+    height: 10px;
+    border-radius: 5px;
+    margin-top: 10px;
+    overflow: hidden;
+    width: 100%;
+}
+
+.humidity-bar-fill {
+    height: 100%;
+    border-radius: 5px;
+    transition: width 0.5s ease-in-out, background-color 0.5s;
+}
+
+.bar-green { background-color: var(--primary-green); }
+.bar-orange { background-color: var(--accent-yellow); }
+.bar-red { background-color: var(--danger-red); }
+
+.plant-actions {
+    margin-top: 20px;
+    display: flex;
+    gap: 10px;
+}
+
+.btn-water {
+    background-color: #2196F3;
+    flex: 1;
+    margin: 0;
+    padding: 10px;
+}
+
+.btn-water:hover {
+    background-color: #1976D2;
+}
+
+.btn-delete-icon {
+    width: 45px;
+    background-color: transparent;
+    color: var(--text-light);
+    box-shadow: none;
+    border: 2px solid #F1F3F4;
+    margin: 0;
+    padding: 0;
+    font-size: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-delete-icon:hover {
+    color: var(--danger-red);
+    border-color: var(--danger-red);
+    transform: none;
+    background-color: rgba(255, 82, 82, 0.05);
+}
+
 /* przyciski */
 button {
     width: 100%;
@@ -211,20 +322,6 @@ button[onclick="logout()"]:hover {
     color: var(--text-light);
     margin-top: 5px;
     font-size: 12px;
-}
-
-/* ikony */
-.plant-item b::before {
-    content: '';
-    display: block;
-    width: 40px; 
-    height: 40px;
-    background: var(--light-green-bg);
-    border-radius: 12px;
-    margin-bottom: 10px;
-    background-image: url('data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="%234CAF50"><path d="M12 22C17.5228 22 22 17.5228 22 12C22 6.47715 17.5228 2 12 2C6.47715 2 2 6.47715 2 12C2 17.5228 6.47715 22 12 22Z" opacity="0.2"/><path d="M12 18V6M12 6L7 11M12 6L17 11" stroke="%232E7D32" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>');
-    background-repeat: no-repeat;
-    background-position: center;
 }
 
 .delete-btn {

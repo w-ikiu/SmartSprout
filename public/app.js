@@ -81,44 +81,48 @@ async function loadPlants(queryParams = '') {
     }
 
     plants.forEach(p => {
-        // wilgotnosc
-        let humColor = '#4CAF50';
-        if(p.humidity < 30) humColor = '#FF9800';
-        if(p.humidity < 10) humColor = '#F44336';
+        // kolor dla paska wilgotnosci
+        let barClass = 'bar-green';
+        if(p.humidity < 30) barClass = 'bar-orange';
+        if(p.humidity < 10) barClass = 'bar-red';
 
-        // czy grzejnik wlaczony
-        const isHeaterOn = p.heater_status === 1;
-        const heaterBadge = isHeaterOn 
-            ? `<span style="color: #FF5252; font-weight: bold; border: 1px solid #FF5252; padding: 2px 6px; border-radius: 5px;">🔥 GRZEJE</span>` 
-            : `<span style="color: #ccc; border: 1px solid #ccc; padding: 2px 6px; border-radius: 5px;">⚪ Wył.</span>`;
+        // html dla statusow
+        const heaterHtml = p.heater_status === 1
+            ? `<span class="status-badge status-on-heat">🔥 GRZEJE</span>`
+            : `<span class="status-badge status-off">⚪ Wył.</span>`;
 
-        // czy wentylator wlaczony
-        const isFanOn = p.fan_status === 1;
-        const fanBadge = isFanOn 
-            ? `<span style="color: #2196F3; font-weight: bold; border: 1px solid #2196F3; padding: 2px 6px; border-radius: 5px;">💨 WIEJE</span>` 
-            : `<span style="color: #ccc; border: 1px solid #ccc; padding: 2px 6px; border-radius: 5px;">⚪ Wył.</span>`;
+        const fanHtml = p.fan_status === 1
+            ? `<span class="status-badge status-on-fan">💨 WIEJE</span>`
+            : `<span class="status-badge status-off">⚪ Wył.</span>`;
 
-
-        // wyglad kafelka
+        // budowanie kafelka
         const div = document.createElement('div');
         div.className = 'plant-item';
         div.innerHTML = `
             <div>
-                <span style="font-size: 1.1em;">🌱 <b>${p.name}</b></span>
+                <div class="plant-header">
+                    <span class="plant-name">🌱 ${p.name}</span>
+                </div>
                 
-                <div style="margin-top: 10px; font-size: 0.9em; color: #555;">
-                    <div>🌡️ Temp: <b>${p.temperature ? p.temperature.toFixed(1) : '--'}°C</b> ${heaterBadge}</div>
-                    <div style="margin-top: 5px;">💧 Wilgotność: <b>${p.humidity}%</b> ${fanBadge}</div>
+                <div class="plant-stats">
+                    <div class="stat-row">
+                        <span>🌡️ Temp: <b>${p.temperature ? p.temperature.toFixed(1) : '--'}°C</b></span>
+                        ${heaterHtml}
+                    </div>
+                    <div class="stat-row">
+                        <span>💧 Wilgotność: <b>${p.humidity}%</b></span>
+                        ${fanHtml}
+                    </div>
                 </div>
 
-                <div style="background:#eee; height:8px; border-radius:4px; margin-top:8px; width: 100%; overflow: hidden;">
-                    <div style="background:${humColor}; width:${p.humidity}%; height:100%; transition:width 0.5s;"></div>
+                <div class="humidity-bar-container">
+                    <div class="humidity-bar-fill ${barClass}" style="width: ${p.humidity}%;"></div>
                 </div>
             </div>
 
-            <div style="margin-top:15px; display: flex; gap: 10px;">
-                <button onclick="waterPlant(${p.id})" style="background:#2196F3; flex: 1; padding: 10px;">💦 Podlej</button>
-                <button class="delete-btn" onclick="deletePlant(${p.id})">×</button>
+            <div class="plant-actions">
+                <button onclick="waterPlant(${p.id})" class="btn-water">💦 Podlej</button>
+                <button onclick="deletePlant(${p.id})" class="btn-delete-icon" title="Usuń">×</button>
             </div>
         `;
         list.appendChild(div);
