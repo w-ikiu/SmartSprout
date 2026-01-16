@@ -81,25 +81,44 @@ async function loadPlants(queryParams = '') {
     }
 
     plants.forEach(p => {
-        // kolor paska wilgotnosci
+        // wilgotnosc
         let humColor = '#4CAF50';
         if(p.humidity < 30) humColor = '#FF9800';
         if(p.humidity < 10) humColor = '#F44336';
 
+        // czy grzejnik wlaczony
+        const isHeaterOn = p.heater_status === 1;
+        const heaterBadge = isHeaterOn 
+            ? `<span style="color: #FF5252; font-weight: bold; border: 1px solid #FF5252; padding: 2px 6px; border-radius: 5px;">🔥 GRZEJE</span>` 
+            : `<span style="color: #ccc; border: 1px solid #ccc; padding: 2px 6px; border-radius: 5px;">⚪ Wył.</span>`;
+
+        // czy wentylator wlaczony
+        const isFanOn = p.fan_status === 1;
+        const fanBadge = isFanOn 
+            ? `<span style="color: #2196F3; font-weight: bold; border: 1px solid #2196F3; padding: 2px 6px; border-radius: 5px;">💨 WIEJE</span>` 
+            : `<span style="color: #ccc; border: 1px solid #ccc; padding: 2px 6px; border-radius: 5px;">⚪ Wył.</span>`;
+
+
+        // wyglad kafelka
         const div = document.createElement('div');
         div.className = 'plant-item';
         div.innerHTML = `
-            <span>
-                🌱 <b>${p.name}</b> <br>
-                <small>🌡️ Temperatura: ${p.temperature}°C</small> <br>
-                <small>💧 Wilgotność: ${p.humidity}%</small>
-                <div style="background:#ddd; height:5px; border-radius:2px; margin-top:5px;">
-                    <div style="background:${humColor}; width:${p.humidity}%; height:100%; border-radius:2px; transition:width 0.5s;"></div>
+            <div>
+                <span style="font-size: 1.1em;">🌱 <b>${p.name}</b></span>
+                
+                <div style="margin-top: 10px; font-size: 0.9em; color: #555;">
+                    <div>🌡️ Temp: <b>${p.temperature ? p.temperature.toFixed(1) : '--'}°C</b> ${heaterBadge}</div>
+                    <div style="margin-top: 5px;">💧 Wilgotność: <b>${p.humidity}%</b> ${fanBadge}</div>
                 </div>
-            </span>
-            <div style="margin-top:10px;">
-                <button onclick="waterPlant(${p.id})" style="background:#2196F3; width:auto; padding:5px 10px; font-size:12px; margin-right:5px;">💦 Podlej</button>
-                <button class="delete-btn" onclick="deletePlant(${p.id})">Usuń</button>
+
+                <div style="background:#eee; height:8px; border-radius:4px; margin-top:8px; width: 100%; overflow: hidden;">
+                    <div style="background:${humColor}; width:${p.humidity}%; height:100%; transition:width 0.5s;"></div>
+                </div>
+            </div>
+
+            <div style="margin-top:15px; display: flex; gap: 10px;">
+                <button onclick="waterPlant(${p.id})" style="background:#2196F3; flex: 1; padding: 10px;">💦 Podlej</button>
+                <button class="delete-btn" onclick="deletePlant(${p.id})">×</button>
             </div>
         `;
         list.appendChild(div);

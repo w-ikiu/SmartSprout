@@ -33,20 +33,41 @@ mqttClient.on('connect', () => {
 // kiedy przychodzi wiadomosc z czujnika
 mqttClient.on('message', (topic, message) => {
     try {
-        const data = JSON.parse(message.toString());
+        const payload = JSON.parse(message.toString());
         // np. topic: smartsprout/plant/1/data
         // data: { temp: 22.5, humidity: 40 }
         
         const plantId = topic.split('/')[2]; // wyciagamy ID z tematu
+
+        const temp = parseFloat(payload.temp);
+        const hum = parseInt(payload.humidity);
         
         // aktualizacja stanu rosliny do bazy
-        db.run("UPDATE plants SET temperature = ?, humidity = ? WHERE id = ?", 
-            [data.temp, data.humidity, plantId], 
-            (err) => {
-                if (err) console.error("Błąd zapisu MQTT:", err.message);
-                else console.log(`Odebrano dane dla rośliny ID ${plantId}: Wilgotność ${data.humidity}%`);
-            }
+        db.run("UPDATE plants SET temperature = ?, humidity = ?, heater_status = ?, fan_status = ? WHERE id = ?", 
+            [temp, hum, payload.heater ? 1 : 0, payload.fan ? 1 : 0, plantId]
         );
+
+        // automatyczna logika ogrzewania i wentylacji w zaleznosci od odczytow
+
+        // ogrzewanie
+        if (temp < 15 && !payload.heater) {
+            console.log(`Zimno (${temp}°C)! Włączam grzejnik dla ID ${plantId}`);
+            mqttClient.publish(`smartsprout/plant/${plantId}/heater`, JSON.stringify({status: 'ON'}));
+        } 
+        else if (temp > 25 && payload.heater) {
+            console.log(`Ciepło (${temp}°C). Wyłączam grzejnik dla ID ${plantId}`);
+            mqttClient.publish(`smartsprout/plant/${plantId}/heater`, JSON.stringify({status: 'OFF'}));
+        }
+
+        // wentylacja
+        if (hum > 90 && !payload.fan) {
+            console.log(`Wilgotno (${hum}%)! Włączam wentylator dla ID ${plantId}`);
+            mqttClient.publish(`smartsprout/plant/${plantId}/fan`, JSON.stringify({status: 'ON'}));
+        }
+        else if (hum < 60 && payload.fan) {
+            console.log(`Sucho (${hum}%), Wyłączam wentylator dla ID ${plantId}`);
+            mqttClient.publish(`smartsprout/plant/${plantId}/fan`, JSON.stringify({status: 'OFF'}));
+        }
 
         // logowania do tabeli logs do zrobienia
 
@@ -88,13 +109,10 @@ db.serialize(() => {
         name TEXT,
         owner_id INTEGER,
         temperature REAL DEFAULT 0,
-        humidity INTEGER DEFAULT 100
+        humidity INTEGER DEFAULT 50,
+        heater_status INTEGER DEFAULT 0,
+        fan_status INTEGER DEFAULT 0
     )`);
-
-    // testowa roslina
-    db.run("INSERT OR IGNORE INTO plants (id, name) VALUES (1, 'Testowa Paprotka')");
-
-    db.run("INSERT OR IGNORE INTO plants (id, name) VALUES (1, 'Testowa Paprotka')");
 });
 
 // PAMIEC SESJI
