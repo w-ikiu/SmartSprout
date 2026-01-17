@@ -76,6 +76,14 @@ h1 {
     width: 100%;
 }
 
+.input-group {
+    gap: 10px;
+}
+
+#loginView h3 {
+    text-align: center;
+}
+
 #appView > div:first-child {
     background: linear-gradient(135deg, #66BB6A 0%, #43A047 100%);
     color: white;
@@ -108,13 +116,13 @@ h1 {
     font-size: 0.8em;
 }
 
-/* inputy */
 h3 {
     margin-top: 0;
     color: var(--dark-green);
     font-size: 18px;
 }
 
+/* inputy */
 input {
     width: 100%;
     padding: 15px 20px;
@@ -261,6 +269,7 @@ button {
 
 button:hover {
     transform: translateY(-2px);
+    background-color: var(--dark-green);
     box-shadow: 0 8px 20px rgba(76, 175, 80, 0.4);
 }
 
@@ -420,6 +429,7 @@ td:last-child { border-radius: 0 15px 15px 0; }
     padding: 8px 20px !important;
     margin: 0 !important;
     font-size: 12px !important;
+    z-index: 9999;
 }
 .btn-danger:hover {
     background-color: rgba(255, 82, 82, 0.8) !important;
@@ -427,4 +437,28 @@ td:last-child { border-radius: 0 15px 15px 0; }
 
 .hidden {
     display: none !important;
+}
+
+.add-plant-btn {
+    border: none;
+    height: 50px;
+    border-radius: 15px;
+    font-weight: 600;
+    font-size: 14px;
+    cursor: pointer;
+    transition: transform 0.2s, box-shadow 0.2s;
+    margin-top: 10px;
+    background-color: var(--primary-green);
+    color: white;
+    box-shadow: 0 5px 15px rgba(76, 175, 80, 0.3);
+}
+    
+.add-plant-btn:hover {
+    transform: translateY(-2px);
+    background-color: var(--dark-green);
+    box-shadow: 0 8px 20px rgba(76, 175, 80, 0.4);
+}
+
+.add-plant-btn:active {
+    transform: translateY(0);
 }
