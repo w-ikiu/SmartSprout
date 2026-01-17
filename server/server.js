@@ -7,6 +7,8 @@ const cors = require('cors');
 const bcrypt = require('bcryptjs'); 
 // do generowania tokenow
 const { v4: uuidv4 } = require('uuid');
+// mqtt
+const mqtt = require('mqtt');
 
 const app = express();
 const PORT = 3000;
@@ -16,6 +18,75 @@ app.use(cors());
 // do obslugi json
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, '../public')));
+
+// KONFIGURACJA MQTT
+// nie instaluje na razie hiveMQ lokalnie
+const MQTT_BROKER = 'mqtt://test.mosquitto.org'; 
+const mqttClient = mqtt.connect(MQTT_BROKER);
+
+mqttClient.on('connect', () => {
+    console.log("Połączono z brokerem MQTT");
+    // serwer nasluchuje danych od wszystkich roslin
+    mqttClient.subscribe('smartsprout/plant/+/data');
+});
+
+// kiedy przychodzi wiadomosc z czujnika
+mqttClient.on('message', (topic, message) => {
+    try {
+        const payload = JSON.parse(message.toString());
+        // np. topic: smartsprout/plant/1/data
+        // data: { temp: 22.5, humidity: 40 }
+        
+        const topicParts = topic.split('/');
+        const plantId = topicParts[2];
+
+        if (topicParts[3] === 'data') {
+            
+            const temp = parseFloat(payload.temp);
+            const hum = parseInt(payload.humidity);
+            
+            // konwersja boolean (true/false) na int (1/0) dla SQLite
+            const heaterVal = payload.heater ? 1 : 0;
+            const fanVal = payload.fan ? 1 : 0;
+
+            // aktualizacja bazy
+            db.run(
+                "UPDATE plants SET temperature = ?, humidity = ?, heater_status = ?, fan_status = ? WHERE id = ?", 
+                [temp, hum, heaterVal, fanVal, plantId],
+                (err) => {
+                    if (err) console.error("Błąd SQL:", err.message);
+                }
+            );
+
+            // logika smart home
+
+            // ogrzewanie
+            if (temp < 15 && !payload.heater) {
+                console.log(`Zimno (${temp}°C)! Włączam grzejnik [ID ${plantId}]`);
+                mqttClient.publish(`smartsprout/plant/${plantId}/heater`, JSON.stringify({status: 'ON'}));
+            } 
+            else if (temp > 25 && payload.heater) {
+                console.log(`Ciepło (${temp}°C). Wyłączam grzejnik [ID ${plantId}]`);
+                mqttClient.publish(`smartsprout/plant/${plantId}/heater`, JSON.stringify({status: 'OFF'}));
+            }
+
+            // wentylacja
+            if (hum > 90 && !payload.fan) {
+                console.log(`Wilgotno (${hum}%)! Włączam wentylator [ID ${plantId}]`);
+                mqttClient.publish(`smartsprout/plant/${plantId}/fan`, JSON.stringify({status: 'ON'}));
+            }
+            else if (hum < 60 && payload.fan) {
+                console.log(`Sucho (${hum}%), Wyłączam wentylator [ID ${plantId}]`);
+                mqttClient.publish(`smartsprout/plant/${plantId}/fan`, JSON.stringify({status: 'OFF'}));
+            }
+        }
+
+        // logowania do tabeli logs do zrobienia
+
+    } catch (e) {
+        console.error("Błąd przetwarzania wiadomości MQTT:", e);
+    }
+});
 
 // BAZA DANYCH
 const db_path = path.join(__dirname, '../data/database.db');
@@ -48,13 +119,12 @@ db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS plants (
         id INTEGER PRIMARY KEY,
         name TEXT,
-        owner_id INTEGER
+        owner_id INTEGER,
+        temperature REAL DEFAULT 0,
+        humidity INTEGER DEFAULT 50,
+        heater_status INTEGER DEFAULT 0,
+        fan_status INTEGER DEFAULT 0
     )`);
-
-    // testowa roslina
-    db.run("INSERT OR IGNORE INTO plants (id, name) VALUES (1, 'Testowa Paprotka')");
-
-    db.run("INSERT OR IGNORE INTO plants (id, name) VALUES (1, 'Testowa Paprotka')");
 });
 
 // PAMIEC SESJI
@@ -148,7 +218,7 @@ app.get('/api/users/', authenticate, (req, res) => {
     });
 });
 
-// ENDPOINTY ROSLIN
+// API ROSLIN
 
 // GET -> pobranie listy roslin
 app.get('/api/plants', authenticate, (req, res) => {
@@ -173,7 +243,7 @@ app.get('/api/plants', authenticate, (req, res) => {
     });
 });
 
-// POST - dodanie rosliny do listy
+// POST -> dodanie rosliny do listy
 app.post('/api/plants', authenticate, (req, res) => {
     const { name } = req.body;
     if (!name) return res.status(400).json({error: "Nie podano nazwy."});
@@ -188,7 +258,7 @@ app.post('/api/plants', authenticate, (req, res) => {
     );
 });
 
-// DELETE - usuwanie rosliny po ID
+// DELETE -> usuwanie rosliny po ID
 app.delete('/api/plants/:id', authenticate, (req, res) => {
     const id = req.params.id;
     
@@ -196,14 +266,25 @@ app.delete('/api/plants/:id', authenticate, (req, res) => {
     db.get("SELECT owner_id FROM plants WHERE id = ?", [id], (err, plant) => {
         if (!plant) return res.status(404).json({error: "Nie znaleziono rośliny"});
 
-        if (req.user.role !== 'admin' && plant.owner_id !== req.user.userId) {
-            return res.status(403).json({error: "Nie masz uprawnień do usunięcia tej rośliny!"});
-        }
-
         db.run("DELETE FROM plants WHERE id = ?", id, function(err) {
             if (err) return res.status(500).json({error: err.message});
             res.json({ message: `Usunięto roślinę ID: ${id}` });
         });
+    });
+});
+
+// POST -> symulacja podlewania roslin
+app.post('/api/plants/:id/water', authenticate, (req, res) => {
+    const id = req.params.id;
+    
+    // serwer wysyla komende o podlaniu danej rosliny przez MQTT
+    // symulator podlewania zmienia wilgotonosc
+    const topic = `smartsprout/plant/${id}/water`;
+    const message = JSON.stringify({ action: "WATER_ON", duration: 5 });
+    
+    mqttClient.publish(topic, message, () => {
+        console.log(`Wysłano komendę podlewania dla rośliny o ID: ${id}`);
+        res.json({ success: true, message: "Podlewanie uruchomione..." });
     });
 });
 

@@ -3,6 +3,9 @@ let TOKEN = localStorage.getItem('token');
 let ROLE = localStorage.getItem('role');
 let USERNAME = localStorage.getItem('username');
 
+// interwal odswiezania aplikacji zeby wilgotnosc spadala in real time
+let refreshInterval = null;
+
 // jezeli uzytkownik jest zalogowany to pokazujemy aplikacje
 if (TOKEN) {
     showApp();
@@ -72,19 +75,55 @@ async function loadPlants(queryParams = '') {
     const list = document.getElementById('plantsList');
     list.innerHTML = '';
 
-    if(plants.length === 0) {
-        list.innerHTML = '<p>Brak roślin do wyświetlenia.</p>';
+    if (plants.length === 0) {
+        list.innerHTML = '<p class="empty-list">Brak roślin do wyświetlenia.</p>';
         return;
     }
 
     plants.forEach(p => {
+        // kolor dla paska wilgotnosci
+        let barClass = 'bar-green';
+        if(p.humidity < 30) barClass = 'bar-orange';
+        if(p.humidity < 10) barClass = 'bar-red';
+
+        // html dla statusow
+        const heaterHtml = p.heater_status === 1
+            ? `<span class="status-badge status-on-heat">HEATER: ON</span>`
+            : `<span class="status-badge status-off">HEATER: OFF</span>`;
+
+        const fanHtml = p.fan_status === 1
+            ? `<span class="status-badge status-on-fan">FAN: ON</span>`
+            : `<span class="status-badge status-off">FAN: OFF</span>`;
+
+        // budowanie kafelka
         const div = document.createElement('div');
         div.className = 'plant-item';
         div.innerHTML = `
-            <span>
-                🌱 <b>${p.name}</b> 
-            </span>
-            <button class="delete-btn" onclick="deletePlant(${p.id})">Usuń</button>
+            <div>
+                <div class="plant-header">
+                    <span class="plant-name">🌱 ${p.name}</span>
+                </div>
+                
+                <div class="plant-stats">
+                    <div class="stat-row">
+                        <span>🌡️ Temp: <b>${p.temperature ? p.temperature.toFixed(1) : '--'}°C</b></span>
+                        ${heaterHtml}
+                    </div>
+                    <div class="stat-row">
+                        <span>💧 Wilgotność: <b>${p.humidity}%</b></span>
+                        ${fanHtml}
+                    </div>
+                </div>
+
+                <div class="humidity-bar-container">
+                    <div class="humidity-bar-fill ${barClass}" style="width: ${p.humidity}%;"></div>
+                </div>
+            </div>
+
+            <div class="plant-actions">
+                <button onclick="waterPlant(${p.id})" class="btn-water">💦 Podlej</button>
+                <button onclick="deletePlant(${p.id})" class="btn-delete-icon" title="Usuń">×</button>
+            </div>
         `;
         list.appendChild(div);
     });
@@ -100,19 +139,17 @@ async function loadUsersForAdmin() {
     tbody.innerHTML = '';
 
     users.forEach(u => {
-        const tr = document.createElement('tr');
-        tr.style.borderBottom = "1px solid #ddd";
-        tr.style.cursor = "pointer";
+const tr = document.createElement('tr');
+    
+    tr.onclick = () => loadUserPlants(u.id, u.username);
 
-        tr.onclick = () => loadUserPlants(u.id, u.username);
-
-        tr.innerHTML = `
-            <td style="padding: 10px;">${u.id}</td>
-            <td style="padding: 10px;"><b>${u.username}</b></td>
-            <td style="padding: 10px;">${u.role}</td>
-            <td style="padding: 10px;"><button onclick="alert('Tu możesz dodać usuwanie usera')" style="font-size:0.8em">Opcje</button></td>
-        `;
-        tbody.appendChild(tr);
+    tr.innerHTML = `
+        <td>${u.id}</td>
+        <td><b>${u.username}</b></td>
+        <td><button style="width:auto; padding:5px 10px; font-size:12px;">Opcje</button></td>
+    `;
+    
+    tbody.appendChild(tr);
     })
 }
 
@@ -156,6 +193,19 @@ async function deletePlant(id) {
     loadPlants();
 }
 
+// WATER PLANT
+// podlewanie rosliny
+async function waterPlant(id) {
+    const res = await fetch(`/api/plants/${id}/water`, {
+        method: 'POST',
+        headers: { 'Authorization': TOKEN }
+    });
+    const data = await res.json();
+    if(data.success) {
+        setTimeout(loadPlants, 500); 
+    }
+}
+
 // SHOW APP
 // wyswietlanie aplikacji
 function showApp() {
@@ -166,6 +216,9 @@ function showApp() {
     // dane uzytkownika
     document.getElementById('currentUser').innerText = USERNAME;
     document.getElementById('currentRole').innerText = ROLE;
+
+    // czyszczenie timera jesli jakis byl
+    if (refreshInterval) clearInterval(refreshInterval)
 
     // admin
     if (ROLE === 'admin') {
@@ -179,5 +232,8 @@ function showApp() {
         document.getElementById('adminPanel').style.display = 'none';
         document.getElementById('userPanel').style.display = 'flex';
         loadPlants();
+        refreshInterval = setInterval(() => {
+            loadPlants();
+        }, 1000);
     }
 }
