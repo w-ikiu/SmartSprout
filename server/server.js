@@ -1,3 +1,5 @@
+// IMPORTY
+
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const bodyParser = require('body-parser');
@@ -9,9 +11,17 @@ const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 // mqtt
 const mqtt = require('mqtt');
+// ws
+const http = require('http');
+const { Server } = require("socket.io");
+const { Socket } = require('dgram');
 
 const app = express();
 const PORT = 3000;
+
+const server = http.createServer(app);
+
+const io = new Server(server);
 
 app.use(cors());
 
@@ -288,10 +298,18 @@ app.post('/api/plants/:id/water', authenticate, (req, res) => {
     });
 });
 
-// pliki z public
-app.use(express.static(path.join(__dirname, '../public')));
+// OBSLUGA WEBSOCKET
+
+// wlaczenie wws kiedy ktos wejdzie na strone
+io.on('connection', (socket) => {
+    console.log('Nowy klient podłączony przez WS. ID:', socket.id);
+
+    socket.on('disconnect', () => {
+        console.log('Klient rozłączony. ID:', socket.id)
+    });
+});
 
 // start serwera
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`Serwer działa na http://localhost:${PORT}`);
 });
