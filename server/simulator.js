@@ -19,7 +19,7 @@ const DRYING_SPEED = 2; // ile % ubywa w normalnym czasie bez podlewania
 client.on('connect', () => {
     console.log("Symulator połączony.");
     
-    // nasluchiwanie na wszystkie komendy
+    // nasluchiwanie na wszystkie komendy -> + czyli ze wszystkich poziomow (wszystkich roslin po id)
     client.subscribe('smartsprout/plant/+/water');
     client.subscribe('smartsprout/plant/+/heater');
     client.subscribe('smartsprout/plant/+/fan');
@@ -55,7 +55,7 @@ client.on('message', (topic, message) => {
             console.log(`[ID ${plantId}] Wentylator: ${payload.status}`);
         }
     } catch (e) {
-        console.error("Blad odczytu komendy:", e);
+        console.error("Błąd odczytu komendy:", e);
     }
 });
 
@@ -72,8 +72,9 @@ function simulateLoop() {
                 plantsState[id] = { 
                     humidity: 50, 
                     temp: 20 + Math.random() * 5,
+                    // domyslnie wylaczone
                     isWatering: false,
-                    heaterOn: false, // domyslnie wylaczone
+                    heaterOn: false,
                     fanOn: false
                 };
             }
@@ -110,7 +111,7 @@ function simulateLoop() {
 
             // 2. temperatura (reakcja na grzejnik)
             if (plantsState[id].heaterOn) {
-                plantsState[id].temp += 1.5; // szybko rosne jak grzeje
+                plantsState[id].temp += 1.5; // temperatura rosnie szybko jesli grzejnik jest wlaczony
             }
 
             // ograniczniki temperatury
