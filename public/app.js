@@ -214,7 +214,7 @@ async function waterPlant(id) {
     }
 }
 
-// SHOW APP
+// ! ! ! SHOW APP ! ! !
 // wyswietlanie aplikacji
 function showApp() {
     // ukrycie logowania i wyswietlenie aplikacji po zalogowaniu uzytkownika
@@ -235,6 +235,7 @@ function showApp() {
         document.getElementById('userPanel').style.display = 'none';
         document.getElementById('plantsList').innerHTML = '<p>Kliknij użytkownika powyżej, aby zobaczyć jego rośliny.</p>';
         loadUsersForAdmin();
+
     // uzytkownik widzi rosliny
     } else {
         document.getElementById('adminPanel').style.display = 'none';
@@ -243,5 +244,32 @@ function showApp() {
         refreshInterval = setInterval(() => {
             loadPlants();
         }, 1000);
+
+        // przycisk chatu
+        document.getElementById('chatButton').style.display = 'flex';
     }
+}
+
+// TOGGLE CHAT
+// wyswietlanie i zamykanie chatu
+function toggleChat() {
+    const chatWindow = document.getElementById('chatWindow');
+    if (chatWindow.style.display === 'none') {
+        chatWindow.style.display = 'flex';
+    } else {
+        chatWindow.style.display = 'none';
+    }
+}
+
+// SEND MESSAGE
+// wysylanie wiadomosci -> na razie nie dziala
+function sendMessage() {
+    const input = document.getElementById('chatInput');
+    const text = input.value;
+
+    if (!text) return;
+
+    console.log("Próba wysłania wiadomości:", text)
+
+    input.value = ''
 }
