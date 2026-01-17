@@ -1,3 +1,11 @@
+// polaczenie ws
+const socket = io();
+
+// nasluchiwanie na polaczenie uzytkownika
+socket.on('connect', () => {
+    console.log("Połączono z serwerem WS. ID:", socket.id)
+})
+
 // pobranie danych z localStorage
 let TOKEN = localStorage.getItem('token');
 let ROLE = localStorage.getItem('role');
