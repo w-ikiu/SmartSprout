@@ -48,6 +48,7 @@ async function auth(action) {
             localStorage.setItem('token', data.token);
             localStorage.setItem('role', data.role);
             localStorage.setItem('username', data.username);
+            localStorage.setItem('userId', data.userId);
             
             // aktualizacja zmiennych globalnych
             TOKEN = data.token;
@@ -217,37 +218,34 @@ async function waterPlant(id) {
 // ! ! ! SHOW APP ! ! !
 // wyswietlanie aplikacji
 function showApp() {
-    // ukrycie logowania i wyswietlenie aplikacji po zalogowaniu uzytkownika
     document.getElementById('loginView').style.display = 'none';
     document.getElementById('appView').style.display = 'block';
     
-    // dane uzytkownika
     document.getElementById('currentUser').innerText = USERNAME;
     document.getElementById('currentRole').innerText = ROLE;
 
-    // czyszczenie timera jesli jakis byl
     if (refreshInterval) clearInterval(refreshInterval)
 
-    // admin
-    if (ROLE === 'admin') {
-        document.getElementById('adminPanel').style.display = 'block';
-        // ukrycie dodawania roslin i funkcjonalnosci uzytkownikow dla admina
-        document.getElementById('userPanel').style.display = 'none';
-        document.getElementById('plantsList').innerHTML = '<p>Kliknij użytkownika powyżej, aby zobaczyć jego rośliny.</p>';
-        loadUsersForAdmin();
+    // logi wypisujace kim jest uzytkownik, do testow
+    console.log("FRONTEND: Uruchamiam aplikację. Rola:", ROLE, "Login:", USERNAME);
 
-    // uzytkownik widzi rosliny
+    // czy wyswietlamy wersje dla admina czy dla uzytkownika
+    if (USERNAME === 'admin' || ROLE === 'admin') {
+        console.log("FRONTEND: Tryb Administratora");
+        document.getElementById('adminPanel').style.display = 'block';
+        document.getElementById('userPanel').style.display = 'none';
+        document.getElementById('plantsList').innerHTML = '<p style="text-align:center; margin-top:20px;">Kliknij użytkownika powyżej, aby zobaczyć jego rośliny.</p>';
+        loadUsersForAdmin();
     } else {
+        console.log("FRONTEND: Tryb Użytkownika");
         document.getElementById('adminPanel').style.display = 'none';
         document.getElementById('userPanel').style.display = 'flex';
         loadPlants();
-        refreshInterval = setInterval(() => {
-            loadPlants();
-        }, 1000);
-
-        // przycisk chatu
-        document.getElementById('chatButton').style.display = 'flex';
+        refreshInterval = setInterval(() => { loadPlants(); }, 1000);
     }
+
+    document.getElementById('chatButton').style.display = 'flex';
+    initChat();
 }
 
 // TOGGLE CHAT
@@ -261,15 +259,153 @@ function toggleChat() {
     }
 }
 
+// APPEND MESSAGE
+// tworzy HTML dymku wiadomosci
+function appendMessage(content, type, senderName = null) {
+    // type: 'me' lub 'other'
+    const container = document.getElementById('chatMessages');
+    const div = document.createElement('div');
+    div.className = `msg msg-${type}`;
+    
+    // wstawienie tresci wiadomosci
+    div.innerHTML = content; 
+
+    container.appendChild(div);
+
+    // automatyczny scroll na dol
+    container.scrollTop = container.scrollHeight;
+}
+
 // SEND MESSAGE
-// wysylanie wiadomosci -> na razie nie dziala
+// wysylanie wiadomosci
 function sendMessage() {
     const input = document.getElementById('chatInput');
     const text = input.value;
-
     if (!text) return;
 
-    console.log("Próba wysłania wiadomości:", text)
+    if (ROLE === 'admin') {
+        // logika dla admina
+        const targetId = document.getElementById('targetUserId').value;
+        if (!targetId) return alert("Wybierz użytkownika z listy po lewej!");
+        
+        socket.emit('admin_reply', { targetUserId: targetId, content: text });
+        appendMessage(text, 'me'); 
+    } else {
+        // logika dla uzytkownika
+        const userId = localStorage.getItem('userId');
+        const username = localStorage.getItem('username');
+        
+        socket.emit('user_message', { userId, username, content: text });
+        appendMessage(text, 'me');
+    }
+    
+    input.value = '';
+}
 
-    input.value = ''
+// wysylanie wiadomosci enterem
+document.getElementById('chatInput').addEventListener('keypress', function (e) {
+    if (e.key === 'Enter') {
+        sendMessage();
+    }
+});
+
+// inicjalizacja chatu
+function initChat() {
+    const userId = localStorage.getItem('userId');
+    if (!userId) {
+        console.error("FRONTEND BŁĄD: Brak ID użytkownika!");
+        return;
+    }
+
+    // log do testow
+    console.log("FRONTEND: Inicjalizuję czat dla ID:", userId);
+
+    socket.emit('identify', userId);
+    
+    socket.off('admin_new_message');
+    socket.off('new_message');
+    socket.off('active_chats_list');
+    socket.off('chat_history');
+
+    if (USERNAME === 'admin' || ROLE === 'admin') {
+        // dla admina
+        document.getElementById('adminUserList').style.display = 'block';
+        document.getElementById('chatTitle').innerText = "Panel Admina";
+        
+        socket.emit('get_active_chats');
+
+        socket.on('active_chats_list', (users) => {
+            const list = document.getElementById('adminUserList');
+            list.innerHTML = '';
+            
+            if (users.length === 0) list.innerHTML = '<div style="padding:10px; font-size:12px;">Brak użytkowników</div>';
+
+            users.forEach(u => {
+                const btn = document.createElement('div');
+                btn.innerText = u.username;
+                btn.style.padding = "10px";
+                btn.style.cursor = "pointer";
+                btn.style.borderBottom = "1px solid #ccc";
+                btn.style.background = "#fff";
+                btn.id = `user-btn-${u.id}`;
+                
+                btn.onclick = () => {
+                    Array.from(list.children).forEach(c => c.style.background = "#fff");
+                    btn.style.background = "#d1e7dd";
+                    
+                    document.getElementById('targetUserId').value = u.id;
+                    document.getElementById('chatMessages').innerHTML = '<div>Ładowanie...</div>';
+                    socket.emit('get_history', u.id);
+                };
+                list.appendChild(btn);
+            });
+        });
+
+        socket.on('chat_history', (messages) => {
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.innerHTML = ''; 
+            messages.forEach(m => {
+                // kto wyslal wiadomosc
+                const type = (String(m.sender_id) === "1") ? 'me' : 'other';
+                appendMessage(m.content, type);
+            });
+        });
+
+        socket.on('admin_new_message', (msg) => {
+            const currentTarget = document.getElementById('targetUserId').value;
+            
+            console.log("Otrzymano wiadomość od:", msg.fromId, "Aktualnie wybrany:", currentTarget);
+
+            if (currentTarget && String(currentTarget) === String(msg.fromId)) {
+                appendMessage(msg.content, 'other');
+            } else {
+                // jesli admin nie ma otwartego czatu z dana osoba
+                alert(`Nowa wiadomość od ${msg.fromName}`);
+                socket.emit('get_active_chats');
+            }
+        });
+
+    } else {
+        // dla uzytkownika
+        document.getElementById('adminUserList').style.display = 'none';
+        document.getElementById('chatTitle').innerText = "Czat z pomocą";
+        
+        socket.emit('get_history', userId);
+
+        socket.on('chat_history', (messages) => {
+            const chatMessages = document.getElementById('chatMessages');
+            chatMessages.innerHTML = '';
+            const myId = localStorage.getItem('userId');
+            messages.forEach(m => {
+                // sprawdzenie czy sender id to id aktualnego uzytkownika
+                const type = (String(m.sender_id) === String(myId)) ? 'me' : 'other';
+                appendMessage(m.content, type);
+            });
+        });
+
+        socket.on('new_message', (msg) => {
+            // type to other bo to wiadomosc od admina
+            appendMessage(msg.content, 'other'); 
+        });
+    }
 }

@@ -129,3 +129,17 @@
     align-items: center;
     font-size: 18px;
 }
+
+.chat-body {
+    display: flex;
+    flex: 1;
+    overflow: hidden;
+}
+
+#adminUserList {
+    width: 120px;
+    background: #f0f0f0;
+    border-right: 1px solid #ccc;
+    overflow-y: auto;
+    flex-shrink: 0;
+}
