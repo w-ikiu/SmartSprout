@@ -170,21 +170,20 @@ async function loadUserPlants(userId, username) {
     document.getElementById('adminMessage').innerText = `Przeglądasz rośliny użytkownika: ${username}`;
     currentViewedUserId = userId;
     
-    // Czyścimy input przy zmianie usera (opcjonalne, ale wygodne)
+    // czyszczenie inputa przy zmianie uzytkownika
     document.getElementById('searchPlantInput').value = '';
 
-    // Ładowanie początkowe
+    // pokazanie wyszukiwarki
+    document.getElementById('plantSearchContainer').style.display = 'block';
+
     loadPlants(`?userId=${userId}`);
     
-    // Reset interwału
     if (refreshInterval) clearInterval(refreshInterval);
     
-    // --- POPRAWIONY INTERVAL ADMINA ---
     refreshInterval = setInterval(() => {
-        // 1. Sprawdzamy input
         const searchValue = document.getElementById('searchPlantInput').value;
         
-        // 2. Budujemy zapytanie: ZAWSZE userId + ew. search
+        // budowa zapytania
         let query = `?userId=${userId}`;
         
         if (searchValue) {
@@ -295,6 +294,7 @@ function showApp() {
     // zmiana wyswietlania danych elementow jesli jestesmy zalogowani
     document.getElementById('loginView').style.display = 'none';
     document.getElementById('appView').style.display = 'block';
+    
     document.getElementById('plantSearchContainer').style.display = 'block';
     
     document.getElementById('currentUser').innerText = USERNAME;
@@ -311,11 +311,16 @@ function showApp() {
         document.getElementById('adminPanel').style.display = 'block';
         document.getElementById('userPanel').style.display = 'none';
         document.getElementById('plantsList').innerHTML = '<p style="text-align:center; margin-top:20px;">Kliknij użytkownika powyżej, aby zobaczyć jego rośliny.</p>';
+        
+        // ukrycie wyszukiwarki dopoki admin nie kliknie jakiegos uzytkownika
+        document.getElementById('plantSearchContainer').style.display = 'none';
+
         loadUsersForAdmin();
     } else {
         console.log("FRONTEND: Tryb Użytkownika");
         document.getElementById('adminPanel').style.display = 'none';
         document.getElementById('userPanel').style.display = 'flex';
+        document.getElementById('plantSearchContainer').style.display = 'block';
         loadPlants();
 
         // odswiezanie w zaleznosci od tego czy cos wyszukujemy czy nie, zeby nie reloadowac strony po wyszukaniu

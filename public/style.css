@@ -140,8 +140,52 @@ input:focus {
     background-color: white;
 }
 
-/* kafelek rosliny */
+/* wyszukiwarka */
+#plantSearchContainer {
+    background: linear-gradient(135deg, #66BB6A 0%, #43A047 100%);
+    padding: 15px 20px; 
+    border-radius: 25px;
+    margin-bottom: 25px;
+    box-shadow: 0 10px 20px rgba(76, 175, 80, 0.3);
+    position: relative;
+    overflow: hidden; 
+    display: none; 
+}
 
+#plantSearchContainer::before {
+    content: '';
+    position: absolute;
+    top: -30px; 
+    right: -30px;
+    width: 120px; 
+    height: 120px;
+    background: rgba(255, 255, 255, 0.1);
+    border-radius: 50%;
+    z-index: 0;
+    pointer-events: none;
+}
+
+#plantSearchContainer input {
+    width: 100%;
+    padding: 15px 20px;
+    border: none;
+    border-radius: 15px !important;
+    background: rgba(255, 255, 255, 0.95);
+    font-size: 16px;
+    color: #333;
+    outline: none;
+    box-sizing: border-box;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    position: relative;
+    z-index: 1; 
+}
+
+#plantSearchContainer input::placeholder {
+    font-size: 14px;
+    color: #888;
+}
+
+/* kafelek rosliny */
 .plant-header {
     display: flex;
     align-items: center;
