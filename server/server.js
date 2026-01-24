@@ -1,3 +1,4 @@
+// IMPORTY
 const express = require('express');
 const sqlite3 = require('sqlite3').verbose();
 const bodyParser = require('body-parser');
@@ -9,9 +10,17 @@ const bcrypt = require('bcryptjs');
 const { v4: uuidv4 } = require('uuid');
 // mqtt
 const mqtt = require('mqtt');
+// ws
+const http = require('http');
+const { Server } = require("socket.io");
+const { Socket } = require('dgram');
 
 const app = express();
 const PORT = 3000;
+
+const server = http.createServer(app);
+
+const io = new Server(server);
 
 app.use(cors());
 
@@ -96,35 +105,29 @@ const db = new sqlite3.Database(db_path, (err) => {
 });
 
 db.serialize(() => {
-    // tabela UZYTKOWNIKOW
-    db.run(`CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY,
-        username TEXT UNIQUE,
-        password TEXT,
-        role TEXT
-    )`)
+    // tworzenie tabel
 
-    // dane admina sa w bazie, nie mozna sie zarejestrowac jako admin
+    // uzytkownicy
+    db.run(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT, role TEXT)`);
+
+    // rosliny
+    db.run(`CREATE TABLE IF NOT EXISTS plants (id INTEGER PRIMARY KEY, name TEXT, owner_id INTEGER, temperature REAL DEFAULT 0, humidity INTEGER DEFAULT 50, heater_status INTEGER DEFAULT 0, fan_status INTEGER DEFAULT 0)`);
+    
+    // wiadomosci
+    db.run(`CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, sender_id INTEGER, receiver_id INTEGER, content TEXT, sender_name TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+
+    // automatyczne utworzenie konta admina
     const adminPassword = 'admin123';
     const salt = bcrypt.genSaltSync(10);
     const adminHash = bcrypt.hashSync(adminPassword, salt);
 
-    // ustawi takiego admina tylko jesli nie istnieje w bazie
-    db.run(`INSERT OR IGNORE INTO users (username, password, role) 
-            VALUES ('admin', ?, 'admin')`, [adminHash], (err) => {
-        if (!err) console.log("System: Konto Administratora gotowe (login: admin, hasło: admin123)");
+    db.run(`DELETE FROM users WHERE username = 'admin'`, [], (err) => {
+        // Potem tworzymy go na nowo z ID = 1
+        db.run(`INSERT INTO users (id, username, password, role) VALUES (1, 'admin', ?, 'admin')`, [adminHash], (err) => {
+            if (!err) console.log("System: Konto Administratora zresetowane (ID: 1, login: admin)");
+            else console.log("Info: Admin już istnieje lub błąd:", err.message);
+        });
     });
-
-    // tabela ROSLIN
-    db.run(`CREATE TABLE IF NOT EXISTS plants (
-        id INTEGER PRIMARY KEY,
-        name TEXT,
-        owner_id INTEGER,
-        temperature REAL DEFAULT 0,
-        humidity INTEGER DEFAULT 50,
-        heater_status INTEGER DEFAULT 0,
-        fan_status INTEGER DEFAULT 0
-    )`);
 });
 
 // PAMIEC SESJI
@@ -186,11 +189,15 @@ app.post('/api/login', (req, res) => {
         const passwordIsValid = bcrypt.compareSync(password, user.password);
         if (!passwordIsValid) return res.status(400).json({error: "Błędny login lub hasło."});
 
-        // generowanie tokenu sesji
         const token = uuidv4();
         sessions[token] = { userId: user.id, role: user.role, username: user.username };
 
-        res.json({ token, role: user.role, username: user.username });
+        res.json({ 
+            token, 
+            role: user.role, 
+            username: user.username, 
+            userId: user.id
+        });
     });
 });
 
@@ -222,19 +229,22 @@ app.get('/api/users/', authenticate, (req, res) => {
 
 // GET -> pobranie listy roslin
 app.get('/api/plants', authenticate, (req, res) => {
-    // admin widzi wszystkie a uzytkownik tylko swoje
     let sql = "SELECT * FROM plants";
     let params = [];
 
-    // logika filtrowania dla admina
+    // jesli admin widzi to widzi rosliny uzytkownika ktorego wybral
     if (req.user.role === "admin") {
         if (req.query.userId) {
             sql += " WHERE owner_id = ?";
-            params.push(req.query.userId)
+            params.push(req.query.userId);
         } else {
             sql += " WHERE owner_id = ?";
-            params.push(req.user.userId)
+            params.push(req.user.userId);
         }
+    // jesli nie to tylko swoje rosliny
+    } else {
+        sql += " WHERE owner_id = ?";
+        params.push(req.user.userId);
     }
 
     db.all(sql, params, (err, rows) => {
@@ -288,10 +298,72 @@ app.post('/api/plants/:id/water', authenticate, (req, res) => {
     });
 });
 
-// pliki z public
-app.use(express.static(path.join(__dirname, '../public')));
+// OBSLUGA WEBSOCKET + logi do debugowania
+
+io.on('connection', (socket) => {
+    console.log('Nowy klient WebSocket:', socket.id);
+
+    socket.on('identify', (userId) => {
+        // uzytkownik dolacza do swojego dedykowanego pokoju
+        socket.join(`user_${userId}`);
+
+        // admin dolacza do pokoju admins
+        if (String(userId) === "1") {
+            socket.join('admins');
+            console.log("Administrator dołączył do pokoju adminów");
+        }
+        console.log(`Zidentyfikowano użytkownika ID: ${userId}`);
+    });
+
+    socket.on('get_active_chats', () => {
+        const sql = `SELECT id, username FROM users WHERE role != 'admin'`;
+        db.all(sql, [], (err, rows) => {
+            if (!err) socket.emit('active_chats_list', rows);
+        });
+    });
+
+    socket.on('get_history', (targetUserId) => {
+        const sql = `
+            SELECT content, sender_id, sender_name, timestamp 
+            FROM messages 
+            WHERE (sender_id = ? AND receiver_id = 1) 
+               OR (sender_id = 1 AND receiver_id = ?)
+            ORDER BY timestamp ASC
+        `;
+        db.all(sql, [targetUserId, targetUserId], (err, rows) => {
+            if (!err) socket.emit('chat_history', rows);
+        });
+    });
+
+    socket.on('user_message', (data) => {
+        const { userId, username, content } = data;
+        
+        db.run("INSERT INTO messages (sender_id, receiver_id, content, sender_name) VALUES (?, 1, ?, ?)", 
+            [userId, content, username]);
+
+        // wiadomosc od uzytkownika wysylana do pokoju admins (czyli do admina)
+        io.to('admins').emit('admin_new_message', { fromId: userId, fromName: username, content: content });
+    });
+
+    socket.on('admin_reply', (data) => {
+        const { targetUserId, content } = data;
+
+        db.run("INSERT INTO messages (sender_id, receiver_id, content, sender_name) VALUES (1, ?, ?, 'Admin')", 
+            [targetUserId, content]);
+
+        // admin wysyla wiadomosc do uzytkownika po jego id
+        io.to(`user_${targetUserId}`).emit('new_message', { 
+            fromName: 'Admin', 
+            content: content 
+        });
+    });
+
+    socket.on('disconnect', () => {
+        console.log('Klient rozłączony:', socket.id);
+    });
+});
 
 // start serwera
-app.listen(PORT, () => {
+server.listen(PORT, () => {
     console.log(`Serwer działa na http://localhost:${PORT}`);
 });

@@ -4,9 +4,11 @@
     <meta charset="UTF-8">
     <title>Smart Sprout</title>
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="chat.css">
 </head>
 <body>
     <div class="header-container">
+
         <img src="assets/smartsproutlogo.png" alt="Smart Sprout Logo">
 
         <div id="loginView">
@@ -52,12 +54,42 @@
 
         <div id="userPanel" class="input-group">
             <input type="text" id="plantName" placeholder="Nazwa rośliny...">
-            <button class="add-plant-btn" onclick="addPlant()">Dodaj Roślinę</button>
+            <button class="add-plant-btn" onclick="addPlant()">Dodaj roślinę</button>
         </div>
 
         <div id="plantsList">Ładowanie...</div>
     </div>
 
+    <!-- przycisk czatu -->
+    <div id="chatButton" onclick="toggleChat()" style="display:none;">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path fill="#ffffff" d="M64 416L64 192C64 139 107 96 160 96L480 96C533 96 576 139 576 192L576 416C576 469 533 512 480 512L360 512C354.8 512 349.8 513.7 345.6 516.8L230.4 603.2C226.2 606.3 221.2 608 216 608C202.7 608 192 597.3 192 584L192 512L160 512C107 512 64 469 64 416z"/></svg>
+    </div>
+
+    <!-- okienko czatu -->
+    <div id="chatWindow" style="display:none;">
+        <div class="chat-header">
+            <span id="chatTitle">Czat</span>
+            <button class="chat-close-btn" onclick="toggleChat()">×</button>
+        </div>
+        
+        <div class="chat-body" style="display: flex; flex: 1; min-height: 0;">
+            
+            <div id="adminUserList" style="display:none; width: 120px; background: #eee; border-right: 1px solid #ddd; overflow-y: auto;">
+                </div>
+
+            <div style="flex: 1; display: flex; flex-direction: column;">
+                <div id="chatMessages" style="flex: 1; overflow-y: auto; padding: 10px;"></div>
+
+                <div class="chat-input-area">
+                    <input type="hidden" id="targetUserId">
+                    <input type="text" id="chatInput" placeholder="Napisz wiadomość...">
+                    <button onclick="sendMessage()" class="chat-send-btn">➤</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <script src="/socket.io/socket.io.js"></script>
     <script src="app.js"></script>
 </body>
 </html>
