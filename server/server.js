@@ -29,6 +29,7 @@ app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
 // KONFIGURACJA MQTT
+
 // nie instaluje na razie hiveMQ lokalnie
 const MQTT_BROKER = 'mqtt://test.mosquitto.org'; 
 const mqttClient = mqtt.connect(MQTT_BROKER);
@@ -98,6 +99,7 @@ mqttClient.on('message', (topic, message) => {
 });
 
 // BAZA DANYCH
+
 const db_path = path.join(__dirname, '../data/database.db');
 const db = new sqlite3.Database(db_path, (err) => {
     if (err) console.error("Błąd bazy danych:", err.message);
@@ -131,6 +133,7 @@ db.serialize(() => {
 });
 
 // PAMIEC SESJI
+
 // tokeny
 const sessions = {};
 
@@ -231,20 +234,32 @@ app.get('/api/users/', authenticate, (req, res) => {
 app.get('/api/plants', authenticate, (req, res) => {
     let sql = "SELECT * FROM plants";
     let params = [];
+    let conditions = []; // uzywane do "sklejenia" zapytania SQL ze wszystkich wymagan wyszukiwania
 
     // jesli admin widzi to widzi rosliny uzytkownika ktorego wybral
     if (req.user.role === "admin") {
         if (req.query.userId) {
-            sql += " WHERE owner_id = ?";
+            conditions.push("owner_id = ?");
             params.push(req.query.userId);
         } else {
-            sql += " WHERE owner_id = ?";
+            conditions.push("owner_id = ?");
             params.push(req.user.userId);
         }
     // jesli nie to tylko swoje rosliny
     } else {
-        sql += " WHERE owner_id = ?";
+        conditions.push("owner_id = ?");
         params.push(req.user.userId);
+    }
+
+    // wyszukiwanie roslin po nazwie
+    if (req.query.search) {
+        conditions.push("name LIKE ?");
+        params.push(`%${req.query.search}%`);
+    }
+
+    // zapytanie sql wg conditions
+    if (conditions.length > 0) {
+        sql += " WHERE " + conditions.join(" AND ");
     }
 
     db.all(sql, params, (err, rows) => {

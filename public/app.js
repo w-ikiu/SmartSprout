@@ -19,6 +19,9 @@ if (TOKEN) {
     showApp();
 }
 
+// funkcja pomocnicza dla admina ktora przechowuje id aktualnie przegladanego uzytkownika
+let currentViewedUserId = null;
+
 // AUTH
 // logowanie/rejestracja
 async function auth(action) {
@@ -165,7 +168,31 @@ const tr = document.createElement('tr');
 // funkcja pomocniczna ladowania roslin danego uzytkownika
 async function loadUserPlants(userId, username) {
     document.getElementById('adminMessage').innerText = `Przeglądasz rośliny użytkownika: ${username}`;
+    currentViewedUserId = userId;
+    
+    // Czyścimy input przy zmianie usera (opcjonalne, ale wygodne)
+    document.getElementById('searchPlantInput').value = '';
+
+    // Ładowanie początkowe
     loadPlants(`?userId=${userId}`);
+    
+    // Reset interwału
+    if (refreshInterval) clearInterval(refreshInterval);
+    
+    // --- POPRAWIONY INTERVAL ADMINA ---
+    refreshInterval = setInterval(() => {
+        // 1. Sprawdzamy input
+        const searchValue = document.getElementById('searchPlantInput').value;
+        
+        // 2. Budujemy zapytanie: ZAWSZE userId + ew. search
+        let query = `?userId=${userId}`;
+        
+        if (searchValue) {
+            query += `&search=${searchValue}`;
+        }
+        
+        loadPlants(query);
+    }, 3000);
 }
 
 // ADD PLANT
@@ -205,21 +232,70 @@ async function deletePlant(id) {
 // WATER PLANT
 // podlewanie rosliny
 async function waterPlant(id) {
-    const res = await fetch(`/api/plants/${id}/water`, {
-        method: 'POST',
-        headers: { 'Authorization': TOKEN }
-    });
-    const data = await res.json();
-    if(data.success) {
-        setTimeout(loadPlants, 500); 
+    console.log(`Podlewanie ${id}...`);
+
+    // zadanie do serwera
+    try {
+        const res = await fetch(`/api/plants/${id}/water`, {
+            method: 'POST',
+            headers: { 'Authorization': TOKEN }
+        });
+        const data = await res.json();
+        
+        if(data.success) {
+            // od razu odswiezenie jesli sukces, ale 500ms dla serwera na przetworzenie mqtt
+            setTimeout(() => {
+                const currentSearch = document.getElementById('searchPlantInput').value;
+                if(currentSearch) searchPlants(); // odswiezenie z wyszukiwaniem
+                else loadPlants(); // zwykle odswiezenie
+            }, 500);
+        }
+    } catch (e) {
+        alert("Błąd połączenia.");
     }
+}
+
+// SEARCH PLANTS
+// wyszukiwarka
+let searchTimeout = null;
+
+function searchPlants() {
+    const query = document.getElementById('searchPlantInput').value;
+    
+    // zatrzymanie automatycznego odswiezania podczas pisania
+    if (refreshInterval) clearInterval(refreshInterval);
+
+    if (searchTimeout) clearTimeout(searchTimeout);
+    
+    searchTimeout = setTimeout(() => {
+        let queryParams = `?search=${query}`;
+
+        if (ROLE === 'admin' && currentViewedUserId) {
+            queryParams += `&userId=${currentViewedUserId}`;
+        }
+        
+        loadPlants(queryParams);
+
+        refreshInterval = setInterval(() => {
+             const currentSearch = document.getElementById('searchPlantInput').value;
+             let loopQuery = `?search=${currentSearch}`;
+             
+             if (ROLE === 'admin' && currentViewedUserId) {
+                 loopQuery += `&userId=${currentViewedUserId}`;
+             }
+             loadPlants(loopQuery);
+        }, 3000);
+
+    }, 300);
 }
 
 // ! ! ! SHOW APP ! ! !
 // wyswietlanie aplikacji
 function showApp() {
+    // zmiana wyswietlania danych elementow jesli jestesmy zalogowani
     document.getElementById('loginView').style.display = 'none';
     document.getElementById('appView').style.display = 'block';
+    document.getElementById('plantSearchContainer').style.display = 'block';
     
     document.getElementById('currentUser').innerText = USERNAME;
     document.getElementById('currentRole').innerText = ROLE;
@@ -241,12 +317,25 @@ function showApp() {
         document.getElementById('adminPanel').style.display = 'none';
         document.getElementById('userPanel').style.display = 'flex';
         loadPlants();
-        refreshInterval = setInterval(() => { loadPlants(); }, 1000);
+
+        // odswiezanie w zaleznosci od tego czy cos wyszukujemy czy nie, zeby nie reloadowac strony po wyszukaniu
+        refreshInterval = setInterval(() => {
+            const searchValue = document.getElementById('searchPlantInput').value;
+            
+            // jesli cos jest wyszukane ladujemy rosliny pasujace do wyszukiwania
+            if (searchValue) {
+                loadPlants(`?search=${searchValue}`);
+            } else {
+                loadPlants();
+            }
+        }, 3000);
     }
 
     document.getElementById('chatButton').style.display = 'flex';
     initChat();
 }
+
+// FUNKCJONALNOSCI CHATU
 
 // TOGGLE CHAT
 // wyswietlanie i zamykanie chatu

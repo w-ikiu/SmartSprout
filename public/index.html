@@ -57,6 +57,16 @@
             <button class="add-plant-btn" onclick="addPlant()">Dodaj roślinę</button>
         </div>
 
+        <!-- wyszukiwarka -->
+        <div class="search-bar-container" style="margin: 15px 0; display:none;" id="plantSearchContainer">
+            <input type="text" 
+                id="searchPlantInput" 
+                placeholder="Wyszukaj roślinę..." 
+                onkeyup="searchPlants()" 
+                style="width: 100%; padding: 10px; border: 1px solid #ccc; border-radius: 5px;">
+        </div>
+
+        <!-- lista roslin -->
         <div id="plantsList">Ładowanie...</div>
     </div>
 
