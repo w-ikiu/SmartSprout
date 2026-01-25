@@ -524,3 +524,81 @@ td:last-child { border-radius: 0 15px 15px 0; }
 .add-plant-btn:active {
     transform: translateY(0);
 }
+
+/* logi */
+.logs-container {
+    margin-top: 30px;
+    background: #fff;
+    padding: 20px;
+    border-radius: 25px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.05);
+    animation: fadeIn 0.5s ease-in-out;
+}
+
+.logs-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+}
+
+.logs-header h3 {
+    margin: 0;
+    padding: 0;
+    color: #367a38;
+    font-size: 18px;
+}
+
+#systemLogs {
+    max-height: 200px;
+    overflow-y: auto;
+    font-family: 'Courier New', Courier, monospace;
+    font-size: 13px;
+    color: #555;
+    background: #f9f9f9;
+    padding: 15px;
+    border-radius: 15px;
+    border: 1px solid #eee;
+}
+
+#systemLogs div {
+    border-bottom: 1px solid #e0e0e0;
+    padding: 8px 0;
+    line-height: 1.4;
+}
+
+#systemLogs div:last-child {
+    border-bottom: none;
+}
+
+.btn-refresh {
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    border: none;
+    background-color: #4CAF50; 
+    color: white;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 1px 3px rgba(76, 175, 80, 0.4);
+}
+
+.btn-refresh:hover {
+    background-color: #43A047; 
+    transform: rotate(180deg);
+    box-shadow: 0 2px 6px rgba(76, 175, 80, 0.6); 
+}
+
+.btn-refresh:active {
+    transform: scale(0.95);
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
