@@ -14,6 +14,8 @@ const mqtt = require('mqtt');
 const http = require('http');
 const { Server } = require("socket.io");
 const { Socket } = require('dgram');
+// cookies
+const cookieParser = require('cookie-parser');
 
 const app = express();
 const PORT = 3000;
@@ -22,11 +24,15 @@ const server = http.createServer(app);
 
 const io = new Server(server);
 
+// app.use
+
 app.use(cors());
 
 // do obslugi json
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, '../public')));
+
+app.use(cookieParser());
 
 // DODAWANIE LOGOW DO TABELI
 function logSystemEvent(plantId, message) {
@@ -155,7 +161,7 @@ db.serialize(() => {
 const sessions = {};
 
 const authenticate = (req, res, next) => {
-    const token = req.headers['authorization'];
+    const token = req.headers['authorization'] || req.cookies['token'];
 
     if (!token || !sessions[token]) {
         return res.status(401).json({ error: "Brak dostępu. Zaloguj się."});
@@ -211,6 +217,11 @@ app.post('/api/login', (req, res) => {
 
         const token = uuidv4();
         sessions[token] = { userId: user.id, role: user.role, username: user.username };
+
+        res.cookie('token', token, {
+            httpOnly: true,
+            maxAge: 3600000 // godzina
+        });
 
         res.json({ 
             token, 
