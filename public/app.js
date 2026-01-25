@@ -374,7 +374,7 @@ function showApp() {
     }
 
     document.getElementById('chatButton').style.display = 'flex';
-    
+
     // chat
     initChat();
 
@@ -524,7 +524,7 @@ function initChat() {
     } else {
         // dla uzytkownika
         document.getElementById('adminUserList').style.display = 'none';
-        document.getElementById('chatTitle').innerText = "Czat z pomocą";
+        document.getElementById('chatTitle').innerText = "Czat z administratorem";
         
         socket.emit('get_history', userId);
 
@@ -549,24 +549,40 @@ function initChat() {
 // wyswietlanie logow
 async function loadLogs() {
     const container = document.getElementById('systemLogs');
+    const btn = document.querySelector('.btn-refresh');
+    
+    // animacja
+    if(btn) btn.style.transform = 'rotate(360deg)';
+    setTimeout(() => { if(btn) btn.style.transform = 'rotate(0deg)'; }, 500);
+
     try {
         const res = await fetch('/api/logs', { headers: { 'Authorization': TOKEN } });
         const logs = await res.json();
 
         if (!Array.isArray(logs) || logs.length === 0) {
-            container.innerHTML = '<div style="padding:10px; text-align:center;">Brak ostatnich działań.</div>';
+            container.innerHTML = '<div style="padding:10px; text-align:center;">Brak zdarzeń w historii.</div>';
             return;
         }
 
-        // element html
         container.innerHTML = logs.map(l => {
-            // czas
             const time = new Date(l.timestamp).toLocaleTimeString();
+            
+            // dla admina
+            // jesli admin: "@login|nazwaRosliny"
+            // jesli user: "nazwaRosliny"
+            let ownerPrefix = '';
+            
+            if (ROLE === 'admin') {
+                // stylowanie dla loginu
+                ownerPrefix = `<span style="color: #1976D2; font-weight: bold;">@${l.username}</span> <span style="color:#ccc">|</span> `;
+            }
+
             return `
-                <div style="border-bottom:1px solid #eee; padding:5px 0;">
-                    <span style="color:#888; font-weight:bold;">[${time}]</span>
-                    <span style="color:#2e7d32; font-weight:bold;">${l.plant_name}:</span> 
-                    ${l.message}
+                <div style="border-bottom:1px solid #eee; padding:8px 0;">
+                    <span style="color:#888; font-size:11px; margin-right:5px;">[${time}]</span>
+                    ${ownerPrefix}
+                    <span style="color:#2e7d32; font-weight:600;">${l.plant_name}:</span> 
+                    <span style="color:#555;">${l.message}</span>
                 </div>
             `;
         }).join('');

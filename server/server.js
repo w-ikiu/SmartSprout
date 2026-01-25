@@ -361,7 +361,7 @@ app.put('/api/plants/:id', authenticate, (req, res) => {
 // GET -> pobranie ostatnich logow
 app.get('/api/logs', authenticate, (req, res) => {
     // admin widzi wszystkie, uzytkownicy tylko swoje
-    let sql = `SELECT l.id, l.message, l.timestamp, p.name as plant_name FROM logs l JOIN plants p ON l.plant_id = p.id`;
+    let sql = `SELECT l.id, l.message, l.timestamp, p.name as plant_name, u.username FROM logs l JOIN plants p ON l.plant_id = p.id JOIN users u ON p.owner_id = u.id`;
     let params = []
 
     // nie admin
