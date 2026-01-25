@@ -245,6 +245,24 @@ app.get('/api/users/', authenticate, (req, res) => {
     });
 });
 
+// usuwanie uzytkownika
+app.delete('/api/users/:id', authenticate, (req, res) => {
+    if (req.user.role !== 'admin') return res.status(403).json({error: "Brak uprawnień."});
+    const idToDelete = req.params.id;
+    if (String(idToDelete) === '1') return res.status(400).json({error: "Nie można usunąć admina."});
+
+    db.serialize(() => {
+        // najpierw usuwamy rosliny i logi danego uzytkownika
+        db.run("DELETE FROM plants WHERE owner_id = ?", idToDelete);
+        db.run("DELETE FROM logs WHERE plant_id IN (SELECT id FROM plants WHERE owner_id = ?)", idToDelete);
+        
+        db.run("DELETE FROM users WHERE id = ?", idToDelete, function(err) {
+            if (err) return res.status(500).json({error: err.message});
+            res.json({ success: true, message: "Użytkownik usunięty." });
+        });
+    });
+});
+
 // API ROSLIN
 
 // GET -> pobranie listy roslin

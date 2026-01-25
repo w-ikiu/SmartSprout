@@ -188,17 +188,24 @@ async function loadUsersForAdmin() {
     tbody.innerHTML = '';
 
     users.forEach(u => {
-const tr = document.createElement('tr');
-    
-    tr.onclick = () => loadUserPlants(u.id, u.username);
+        const tr = document.createElement('tr');
+        
+        tr.onclick = () => loadUserPlants(u.id, u.username);
+        tr.style.cursor = 'pointer';
 
-    tr.innerHTML = `
-        <td>${u.id}</td>
-        <td><b>${u.username}</b></td>
-        <td><button style="width:auto; padding:5px 10px; font-size:12px;">Opcje</button></td>
-    `;
-    
-    tbody.appendChild(tr);
+        tr.innerHTML = `
+            <td>${u.id}</td>
+            <td><b>${u.username}</b></td>
+            <td style="text-align: right;">
+                <button 
+                    onclick="deleteUser(event, ${u.id}, '${u.username}')" 
+                    style="background-color: #e53935; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px;">
+                    Usuń
+                </button>
+            </td>
+        `;
+        
+        tbody.appendChild(tr);
     })
 }
 
@@ -229,6 +236,44 @@ async function loadUserPlants(userId, username) {
         
         loadPlants(query);
     }, 3000);
+}
+
+// DELETE USER
+// usuwanie uzytkownika przez admina
+async function deleteUser(event, id, username) {
+    event.stopPropagation();
+
+    // potwierdzenie usuniecia
+    const confirmDelete = confirm(`UWAGA! \nCzy na pewno chcesz usunąć użytkownika "${username}"? \n\nZostaną usunięte również wszystkie jego rośliny i historia.`);
+    
+    if (!confirmDelete) return;
+
+    try {
+        const res = await fetch(`/api/users/${id}`, {
+            method: 'DELETE',
+            headers: { 'Authorization': TOKEN }
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            alert("Użytkownik usunięty.");
+            
+            if (currentViewedUserId === id) {
+                document.getElementById('plantsList').innerHTML = '<p>Użytkownik usunięty.</p>';
+                document.getElementById('plantSearchContainer').style.display = 'none';
+                document.getElementById('searchPlantInput').value = '';
+                currentViewedUserId = null;
+            }
+
+            loadUsersForAdmin();
+        } else {
+            alert(data.error || "Błąd usuwania.");
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Błąd serwera.");
+    }
 }
 
 // ADD PLANT
@@ -347,7 +392,7 @@ function showApp() {
         console.log("FRONTEND: Tryb Administratora");
         document.getElementById('adminPanel').style.display = 'block';
         document.getElementById('userPanel').style.display = 'none';
-        document.getElementById('plantsList').innerHTML = '<p style="text-align:center; margin-top:20px;">Kliknij użytkownika powyżej, aby zobaczyć jego rośliny.</p>';
+        document.getElementById('plantsList').innerHTML = '<p style="text-align: center; width: 500px;">Kliknij użytkownika powyżej, aby zobaczyć jego rośliny.</p>';
         
         // ukrycie wyszukiwarki dopoki admin nie kliknie jakiegos uzytkownika
         document.getElementById('plantSearchContainer').style.display = 'none';
