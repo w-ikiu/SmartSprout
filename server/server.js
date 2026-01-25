@@ -31,7 +31,9 @@ app.use(express.static(path.join(__dirname, '../public')));
 // DODAWANIE LOGOW DO TABELI
 function logSystemEvent(plantId, message) {
     console.log(`[LOG] Roślina ${plantId}, ${message}`);
-    db.run("INSERT INTO logs (plant_id, message) VALUES (?, ?)", [plantId, message])
+
+    db.run("INSERT INTO logs (plant_id, message) VALUES (?, ?)", [plantId, message], (err) => { if (err) console.log("Błąd zapisu logu:", err.message);
+    });
 }
 
 // KONFIGURACJA MQTT
@@ -323,7 +325,10 @@ app.post('/api/plants/:id/water', authenticate, (req, res) => {
     const message = JSON.stringify({ action: "WATER_ON", duration: 5 });
     
     mqttClient.publish(topic, message, () => {
-        console.log(`Wysłano komendę podlewania dla rośliny o ID: ${id}`);
+        console.log(`Wysłano komendę podlewania dla rośliny ID: ${id}`);
+        
+        // log
+        logSystemEvent(id, "Użytkownik ręcznie uruchomił podlewanie.");
         res.json({ success: true, message: "Podlewanie uruchomione..." });
     });
 });
@@ -351,6 +356,9 @@ app.put('/api/plants/:id', authenticate, (req, res) => {
         if (this.changes === 0) {
             return res.status(404).json({error: "Wystąpił błąd."})
         }
+
+        // log
+        logSystemEvent(id, `Zmieniono nazwę rośliny na: "${name}"`);
 
         res.json({ success: true, message: "Zaktualizowano nazwę rośliny." })
     });
