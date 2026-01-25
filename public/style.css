@@ -145,7 +145,7 @@ input:focus {
     background: linear-gradient(135deg, #66BB6A 0%, #43A047 100%);
     padding: 15px 20px; 
     border-radius: 25px;
-    margin-bottom: 25px;
+    margin-bottom: 30px !important;
     box-shadow: 0 10px 20px rgba(76, 175, 80, 0.3);
     position: relative;
     overflow: hidden; 
@@ -171,7 +171,7 @@ input:focus {
     border: none;
     border-radius: 15px !important;
     background: rgba(255, 255, 255, 0.95);
-    font-size: 16px;
+    font-size: 14px;
     color: #333;
     outline: none;
     box-sizing: border-box;
@@ -183,6 +183,10 @@ input:focus {
 #plantSearchContainer input::placeholder {
     font-size: 14px;
     color: #888;
+}
+
+#plantSearchContainer input:focus {
+    border-color: white !important;
 }
 
 /* kafelek rosliny */
@@ -272,6 +276,19 @@ input:focus {
 
 .btn-water:hover {
     background-color: #1976D2;
+}
+
+.btn-edit {
+    background-color: #ffc107;
+    color: #333;
+    flex: 1;
+    margin: 0;
+    padding: 10px;
+    font-size: 14px;
+}
+
+.btn-edit:hover {
+    background-color: #e0a800;
 }
 
 .btn-delete-icon {

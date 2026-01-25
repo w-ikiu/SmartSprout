@@ -134,11 +134,48 @@ async function loadPlants(queryParams = '') {
 
             <div class="plant-actions">
                 <button onclick="waterPlant(${p.id})" class="btn-water">💦 Podlej</button>
+                <button onclick="editPlant(${p.id}, '${p.name}')" class="btn-edit" title="Zmień nazwę">✎ Edytuj</button>
                 <button onclick="deletePlant(${p.id})" class="btn-delete-icon" title="Usuń">×</button>
             </div>
         `;
         list.appendChild(div);
     });
+}
+
+// EDIT PLANT
+// zmiana nazwy rosliny
+async function editPlant(id, oldName) {
+    // okienko do wpisania zmienionej nazwy
+    const newName = prompt("Wpisz nową nazwę dla rośliny:", oldName);
+
+    // walidacja (nie da sie dodac pustego) jesli jest puste albo uzytkownik anulowal
+    if (!newName || newName === oldName) return;
+
+    try {
+        // wyslanie zadania PUT do serwera
+        const res = await fetch(`/api/plants/${id}`, {
+            method: 'PUT',
+            headers: { 
+                'Content-Type': 'application/json',
+                'Authorization': TOKEN 
+            },
+            body: JSON.stringify({ name: newName })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            // jesli sukces to odswiezamy liste
+            const currentSearch = document.getElementById('searchPlantInput').value;
+            if (currentSearch) searchPlants();
+            else loadPlants();
+        } else {
+            alert(data.error || "Błąd podczas zmiany nazwy.");
+        }
+    } catch (err) {
+        console.error(err);
+        alert("Błąd połączenia z serwerem.");
+    }
 }
 
 // LOAD USERS FOR ADMIN

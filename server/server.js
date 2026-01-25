@@ -313,6 +313,34 @@ app.post('/api/plants/:id/water', authenticate, (req, res) => {
     });
 });
 
+// PUT -> aktualizacja nazwy rosliny
+app.put('/api/plants/:id', authenticate, (req, res) => {
+    const id = req.params.id;
+    const { name } = req.body;
+
+    if (!name) return res.status(400).json({error: "Podaj nową nazwę rośliny."});
+
+    // admin moze edytowac wszystko a uzytkownik tylko swoje
+    let sql = "UPDATE plants SET name = ? WHERE id = ?";
+    let params = [name, id];
+
+    if (req.user.role !== 'admin') {
+        sql += " AND owner_id = ? ";
+        params.push(req.user.userId);
+    }
+
+    db.run(sql, params, function(err) {
+        if (err) return res.status(500).json({error: err.message});
+
+        // jesli nic sie nie zmieni
+        if (this.changes === 0) {
+            return res.status(404).json({error: "Wystąpił błąd."})
+        }
+
+        res.json({ success: true, message: "Zaktualizowano nazwę rośliny." })
+    });
+});
+
 // OBSLUGA WEBSOCKET + logi do debugowania
 
 io.on('connection', (socket) => {
