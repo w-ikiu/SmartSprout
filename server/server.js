@@ -31,7 +31,9 @@ app.use(express.static(path.join(__dirname, '../public')));
 // DODAWANIE LOGOW DO TABELI
 function logSystemEvent(plantId, message) {
     console.log(`[LOG] Roślina ${plantId}, ${message}`);
-    db.run("INSERT INTO logs (plant_id, message) VALUES (?, ?)", [plantId, message])
+
+    db.run("INSERT INTO logs (plant_id, message) VALUES (?, ?)", [plantId, message], (err) => { if (err) console.log("Błąd zapisu logu:", err.message);
+    });
 }
 
 // KONFIGURACJA MQTT
@@ -156,14 +158,14 @@ const authenticate = (req, res, next) => {
     const token = req.headers['authorization'];
 
     if (!token || !sessions[token]) {
-        return res.status(401).json({ error: "Brak dostępu.Zaloguj się."});
+        return res.status(401).json({ error: "Brak dostępu. Zaloguj się."});
     }
 
     req.user = sessions[token]
     next();
 }
 
-// API
+// !!! API !!!
 
 // ENDPOINTY REJESTRACJI I LOGOWANIA
 
@@ -323,7 +325,10 @@ app.post('/api/plants/:id/water', authenticate, (req, res) => {
     const message = JSON.stringify({ action: "WATER_ON", duration: 5 });
     
     mqttClient.publish(topic, message, () => {
-        console.log(`Wysłano komendę podlewania dla rośliny o ID: ${id}`);
+        console.log(`Wysłano komendę podlewania dla rośliny ID: ${id}`);
+        
+        // log
+        logSystemEvent(id, "Użytkownik ręcznie uruchomił podlewanie.");
         res.json({ success: true, message: "Podlewanie uruchomione..." });
     });
 });
@@ -352,9 +357,36 @@ app.put('/api/plants/:id', authenticate, (req, res) => {
             return res.status(404).json({error: "Wystąpił błąd."})
         }
 
+        // log
+        logSystemEvent(id, `Zmieniono nazwę rośliny na: "${name}"`);
+
         res.json({ success: true, message: "Zaktualizowano nazwę rośliny." })
     });
 });
+
+// API LOGOW
+
+// GET -> pobranie ostatnich logow
+app.get('/api/logs', authenticate, (req, res) => {
+    // admin widzi wszystkie, uzytkownicy tylko swoje
+    let sql = `SELECT l.id, l.message, l.timestamp, p.name as plant_name, u.username FROM logs l JOIN plants p ON l.plant_id = p.id JOIN users u ON p.owner_id = u.id`;
+    let params = []
+
+    // nie admin
+    if (req.user.role !== 'admin') {
+        sql += " WHERE p.owner_id = ?";
+        params.push(req.user.userId);
+    }
+
+    // wyswietlamy 50 ostatnich logow
+    sql += " ORDER BY l.timestamp DESC LIMIT 50"
+
+    // bierzemy wszystko z bazy danych ktore spelnia te warunki
+    db.all(sql, params, (err, rows) => {
+        if (err) return res.status(500).json({error: err.message});
+        res.json(rows);
+    });
+})
 
 // OBSLUGA WEBSOCKET + logi do debugowania
 
