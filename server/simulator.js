@@ -24,11 +24,12 @@ client.on('connect', () => {
     client.subscribe('smartsprout/plant/+/heater');
     client.subscribe('smartsprout/plant/+/fan');
     
-    // petla symulacji co 1 sekunde
-    setInterval(simulateLoop, 1000);
+    // petla symulacji co 1 sekunde - co sekunde wysyla dane (publish) bo wywolujemy funkcje simulateLoop ktora za to odpowiada
+    setInterval(simulateLoop, 1000); 
 });
 
 // obsluga komend z serwera (subscriber)
+// jesli np uzytkownik kliknie na "podlej" to symulator dostaje wiadomosc przez mqtt od serwera ze ma wykonac podlewanie dla danego id
 client.on('message', (topic, message) => {
     try {
         const parts = topic.split('/');
@@ -41,6 +42,7 @@ client.on('message', (topic, message) => {
         const payload = JSON.parse(message.toString());
 
         if (action === 'water') {
+            // podlewanie
             console.log(`[ID ${plantId}] Podlewanie...`);
             plantsState[plantId].isWatering = true;
         } 

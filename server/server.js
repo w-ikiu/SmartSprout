@@ -28,6 +28,12 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
+// DODAWANIE LOGOW DO TABELI
+function logSystemEvent(plantId, message) {
+    console.log(`[LOG] Roślina ${plantId}, ${message}`);
+    db.run("INSERT INTO logs (plant_id, message) VALUES (?, ?)", [plantId, message])
+}
+
 // KONFIGURACJA MQTT
 
 // nie instaluje na razie hiveMQ lokalnie
@@ -68,30 +74,36 @@ mqttClient.on('message', (topic, message) => {
                 }
             );
 
-            // logika smart home
+            // logika smart home + logi
 
             // ogrzewanie
             if (temp < 15 && !payload.heater) {
-                console.log(`Zimno (${temp}°C)! Włączam grzejnik [ID ${plantId}]`);
+                const msg = `Temperatura: ${temp}°C. Grzejnik włączony.`
+                logSystemEvent(plantId, msg)
+
                 mqttClient.publish(`smartsprout/plant/${plantId}/heater`, JSON.stringify({status: 'ON'}));
             } 
             else if (temp > 25 && payload.heater) {
-                console.log(`Ciepło (${temp}°C). Wyłączam grzejnik [ID ${plantId}]`);
+                const msg = `Temperatura ${temp}°C. Wyłączam grzejnik.`;
+                logSystemEvent(plantId, msg);
+
                 mqttClient.publish(`smartsprout/plant/${plantId}/heater`, JSON.stringify({status: 'OFF'}));
             }
 
             // wentylacja
             if (hum > 90 && !payload.fan) {
-                console.log(`Wilgotno (${hum}%)! Włączam wentylator [ID ${plantId}]`);
+                const msg = `Wilgoć na poziomie: ${hum}. Włączam wentylator.`;
+                logSystemEvent(plantId, msg);
+
                 mqttClient.publish(`smartsprout/plant/${plantId}/fan`, JSON.stringify({status: 'ON'}));
             }
             else if (hum < 60 && payload.fan) {
-                console.log(`Sucho (${hum}%), Wyłączam wentylator [ID ${plantId}]`);
+                const msg = `Wilgoć na poziomie: ${hum}. Wyłączam wentylator.`;
+                logSystemEvent(plantId, msg);
+
                 mqttClient.publish(`smartsprout/plant/${plantId}/fan`, JSON.stringify({status: 'OFF'}));
             }
         }
-
-        // logowania do tabeli logs do zrobienia
 
     } catch (e) {
         console.error("Błąd przetwarzania wiadomości MQTT:", e);
@@ -118,13 +130,16 @@ db.serialize(() => {
     // wiadomosci
     db.run(`CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, sender_id INTEGER, receiver_id INTEGER, content TEXT, sender_name TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)`);
 
+    // logi
+    db.run(`CREATE TABLE IF NOT EXISTS logs (id INTEGER PRIMARY KEY, plant_id INTEGER, message TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP )`);
+
     // automatyczne utworzenie konta admina
     const adminPassword = 'admin123';
     const salt = bcrypt.genSaltSync(10);
     const adminHash = bcrypt.hashSync(adminPassword, salt);
 
     db.run(`DELETE FROM users WHERE username = 'admin'`, [], (err) => {
-        // Potem tworzymy go na nowo z ID = 1
+        // potem tworzymy go na nowo z ID = 1
         db.run(`INSERT INTO users (id, username, password, role) VALUES (1, 'admin', ?, 'admin')`, [adminHash], (err) => {
             if (!err) console.log("System: Konto Administratora zresetowane (ID: 1, login: admin)");
             else console.log("Info: Admin już istnieje lub błąd:", err.message);
