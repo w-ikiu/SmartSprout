@@ -156,14 +156,14 @@ const authenticate = (req, res, next) => {
     const token = req.headers['authorization'];
 
     if (!token || !sessions[token]) {
-        return res.status(401).json({ error: "Brak dostępu.Zaloguj się."});
+        return res.status(401).json({ error: "Brak dostępu. Zaloguj się."});
     }
 
     req.user = sessions[token]
     next();
 }
 
-// API
+// !!! API !!!
 
 // ENDPOINTY REJESTRACJI I LOGOWANIA
 
@@ -355,6 +355,30 @@ app.put('/api/plants/:id', authenticate, (req, res) => {
         res.json({ success: true, message: "Zaktualizowano nazwę rośliny." })
     });
 });
+
+// API LOGOW
+
+// GET -> pobranie ostatnich logow
+app.get('/api/logs', authenticate, (req, res) => {
+    // admin widzi wszystkie, uzytkownicy tylko swoje
+    let sql = `SELECT l.id, l.message, l.timestamp, p.name as plant_name FROM logs l JOIN plants p ON l.plant_id = p.id`;
+    let params = []
+
+    // nie admin
+    if (req.user.role !== 'admin') {
+        sql += " WHERE p.owner_id = ?";
+        params.push(req.user.userId);
+    }
+
+    // wyswietlamy 50 ostatnich logow
+    sql += " ORDER BY l.timestamp DESC LIMIT 50"
+
+    // bierzemy wszystko z bazy danych ktore spelnia te warunki
+    db.all(sql, params, (err, rows) => {
+        if (err) return res.status(500).json({error: err.message});
+        res.json(rows);
+    });
+})
 
 // OBSLUGA WEBSOCKET + logi do debugowania
 

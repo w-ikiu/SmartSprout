@@ -374,7 +374,12 @@ function showApp() {
     }
 
     document.getElementById('chatButton').style.display = 'flex';
+    
+    // chat
     initChat();
+
+    // logi
+    loadLogs();
 }
 
 // FUNKCJONALNOSCI CHATU
@@ -538,5 +543,36 @@ function initChat() {
             // type to other bo to wiadomosc od admina
             appendMessage(msg.content, 'other'); 
         });
+    }
+}
+
+// wyswietlanie logow
+async function loadLogs() {
+    const container = document.getElementById('systemLogs');
+    try {
+        const res = await fetch('/api/logs', { headers: { 'Authorization': TOKEN } });
+        const logs = await res.json();
+
+        if (!Array.isArray(logs) || logs.length === 0) {
+            container.innerHTML = '<div style="padding:10px; text-align:center;">Brak ostatnich działań.</div>';
+            return;
+        }
+
+        // element html
+        container.innerHTML = logs.map(l => {
+            // czas
+            const time = new Date(l.timestamp).toLocaleTimeString();
+            return `
+                <div style="border-bottom:1px solid #eee; padding:5px 0;">
+                    <span style="color:#888; font-weight:bold;">[${time}]</span>
+                    <span style="color:#2e7d32; font-weight:bold;">${l.plant_name}:</span> 
+                    ${l.message}
+                </div>
+            `;
+        }).join('');
+
+    } catch (e) {
+        console.error(e);
+        container.innerHTML = "Błąd pobierania logów.";
     }
 }

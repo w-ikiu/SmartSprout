@@ -70,6 +70,17 @@
         <div id="plantsList">Ładowanie...</div>
     </div>
 
+    <div class="logs-container" style="margin-top: 30px; background: #fff; padding: 20px; border-radius: 25px; box-shadow: 0 5px 15px rgba(0,0,0,0.05);">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+                <h3>📜 Historia działań - logi</h3>
+                <button onclick="loadLogs()" style="font-size: 12px; padding: 5px 10px; cursor: pointer;">Odśwież</button>
+            </div>
+            
+            <div id="systemLogs" style="max-height: 200px; overflow-y: auto; font-family: monospace; font-size: 13px; color: #555; background: #f9f9f9; padding: 10px; border-radius: 10px;">
+                Brak ostatnich działań.
+            </div>
+    </div>
+
     <!-- przycisk czatu -->
     <div id="chatButton" onclick="toggleChat()" style="display:none;">
         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 640"><path fill="#ffffff" d="M64 416L64 192C64 139 107 96 160 96L480 96C533 96 576 139 576 192L576 416C576 469 533 512 480 512L360 512C354.8 512 349.8 513.7 345.6 516.8L230.4 603.2C226.2 606.3 221.2 608 216 608C202.7 608 192 597.3 192 584L192 512L160 512C107 512 64 469 64 416z"/></svg>
