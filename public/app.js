@@ -87,6 +87,46 @@ async function logout() {
     location.reload();
 }
 
+// CHANGE USERNAME
+// zmiana nazwy uzytkownika
+async function changeUsername(id, currentName) {
+    const newName = prompt(`Zaktualizuj nazwę: "${currentName}" na:`, currentName);
+
+    if (!newName || newName === currentName) return;
+
+    try {
+        const res = await fetch(`/api/users/${id}/username`, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ newUsername: newName })
+        });
+
+        const data = await res.json();
+
+        if (res.ok) {
+            alert("Nazwa zmieniona pomyślnie!");
+            
+            // zmiana wlasnej nazwy
+            if (String(id) === localStorage.getItem('userId')) {
+                localStorage.setItem('username', newName);
+                USERNAME = newName;
+                document.getElementById('currentUser').innerText = newName;
+            }
+            
+            // admin zmienia komus nazwe
+            if (ROLE === 'admin') {
+                loadUsersForAdmin(); // odswiezenie tabeli
+                loadLogs(); // odswiezenie logow
+            }
+        } else {
+            alert(data.error || "Błąd zmiany nazwy (lub jest zajęta).");
+        }
+    } catch (e) {
+        console.error(e);
+        alert("Błąd serwera.");
+    }
+}
+
 // LOAD PLANTS
 // pobieranie roslin
 
@@ -209,11 +249,19 @@ async function loadUsersForAdmin() {
             <td>${u.id}</td>
             <td><b>${u.username}</b></td>
             <td style="text-align: right;">
+
+                <button 
+                    onclick="event.stopPropagation(); changeUsername(${u.id}, '${u.username}')"
+                    style="background-color: #1976D2; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px; margin-right: 5px;">
+                    Edytuj
+                </button>
+
                 <button 
                     onclick="deleteUser(event, ${u.id}, '${u.username}')" 
                     style="background-color: #e53935; color: white; border: none; padding: 5px 10px; border-radius: 5px; cursor: pointer; font-size: 12px;">
                     Usuń
                 </button>
+
             </td>
         `;
         
@@ -388,7 +436,12 @@ function showApp() {
     
     document.getElementById('plantSearchContainer').style.display = 'block';
     
-    document.getElementById('currentUser').innerText = USERNAME;
+    // nazwa uzytkownika wyswietlana
+    const userLabel = document.getElementById('currentUser');
+    userLabel.innerHTML = `${USERNAME} <span style="font-size:12px; cursor:pointer;" title="Zmień nazwę">✎</span>`;
+    userLabel.style.cursor = 'pointer';
+    userLabel.onclick = () => changeUsername(localStorage.getItem('userId'), USERNAME);
+
     document.getElementById('currentRole').innerText = ROLE;
 
     if (refreshInterval) clearInterval(refreshInterval)
@@ -625,10 +678,21 @@ async function loadLogs() {
             // jesli admin: "@login|nazwaRosliny"
             // jesli user: "nazwaRosliny"
             let ownerPrefix = '';
+            let deleteBtn = '';
             
             if (ROLE === 'admin') {
                 // stylowanie dla loginu
                 ownerPrefix = `<span style="color: #1976D2; font-weight: bold;">@${l.username}</span> <span style="color:#ccc">|</span> `;
+
+                // przycisk usuwania logu
+                deleteBtn = `
+                    <span 
+                        onclick="deleteLog(${l.id})" 
+                        style="float:right; cursor:pointer; color:#e53935; font-weight:bold; padding:0 5px;" 
+                        title="Usuń ten wpis">
+                        &times;
+                    </span>
+                `;
             }
 
             return `
@@ -644,5 +708,24 @@ async function loadLogs() {
     } catch (e) {
         console.error(e);
         container.innerHTML = "Błąd pobierania logów.";
+    }
+}
+
+// usuwanie logu (admin)
+async function deleteLog(logId) {
+    if (!confirm("Czy usunąć ten wpis z historii?")) return;
+
+    try {
+        const res = await fetch(`/api/logs/${logId}`, {
+            method: 'DELETE'
+        });
+
+        if (res.ok) {
+            loadLogs(); // odswiezenie listy logow
+        } else {
+            alert("Błąd usuwania logu.");
+        }
+    } catch (e) {
+        console.error(e);
     }
 }
