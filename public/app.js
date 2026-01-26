@@ -8,7 +8,6 @@ socket.on('connect', () => {
 
 let ROLE = localStorage.getItem('role');
 let USERNAME = localStorage.getItem('username');
-let refreshInterval = null;
 
 // zamiast if(TOKEN) sprawdzamy sesję na serwerze
 checkSession();
@@ -281,21 +280,6 @@ async function loadUserPlants(userId, username) {
     document.getElementById('plantSearchContainer').style.display = 'block';
 
     loadPlants(`?userId=${userId}`);
-    
-    if (refreshInterval) clearInterval(refreshInterval);
-    
-    refreshInterval = setInterval(() => {
-        const searchValue = document.getElementById('searchPlantInput').value;
-        
-        // budowa zapytania
-        let query = `?userId=${userId}`;
-        
-        if (searchValue) {
-            query += `&search=${searchValue}`;
-        }
-        
-        loadPlants(query);
-    }, 3000);
 }
 
 // DELETE USER
@@ -399,9 +383,6 @@ let searchTimeout = null;
 
 function searchPlants() {
     const query = document.getElementById('searchPlantInput').value;
-    
-    // zatrzymanie automatycznego odswiezania podczas pisania
-    if (refreshInterval) clearInterval(refreshInterval);
 
     if (searchTimeout) clearTimeout(searchTimeout);
     
@@ -413,16 +394,6 @@ function searchPlants() {
         }
         
         loadPlants(queryParams);
-
-        refreshInterval = setInterval(() => {
-             const currentSearch = document.getElementById('searchPlantInput').value;
-             let loopQuery = `?search=${currentSearch}`;
-             
-             if (ROLE === 'admin' && currentViewedUserId) {
-                 loopQuery += `&userId=${currentViewedUserId}`;
-             }
-             loadPlants(loopQuery);
-        }, 3000);
 
     }, 300);
 }
@@ -444,8 +415,6 @@ function showApp() {
 
     document.getElementById('currentRole').innerText = ROLE;
 
-    if (refreshInterval) clearInterval(refreshInterval)
-
     // logi wypisujace kim jest uzytkownik, do testow
     console.log("FRONTEND: Uruchamiam aplikację. Rola:", ROLE, "Login:", USERNAME);
 
@@ -466,18 +435,6 @@ function showApp() {
         document.getElementById('userPanel').style.display = 'flex';
         document.getElementById('plantSearchContainer').style.display = 'block';
         loadPlants();
-
-        // odswiezanie w zaleznosci od tego czy cos wyszukujemy czy nie, zeby nie reloadowac strony po wyszukaniu
-        refreshInterval = setInterval(() => {
-            const searchValue = document.getElementById('searchPlantInput').value;
-            
-            // jesli cos jest wyszukane ladujemy rosliny pasujace do wyszukiwania
-            if (searchValue) {
-                loadPlants(`?search=${searchValue}`);
-            } else {
-                loadPlants();
-            }
-        }, 3000);
     }
 
     document.getElementById('chatButton').style.display = 'flex';
@@ -563,13 +520,42 @@ function initChat() {
     // log do testow
     console.log("FRONTEND: Inicjalizuję czat dla ID:", userId);
 
-    // czyszczenie starych listenerow
     socket.emit('identify', userId);
+
+    // czyszczenie starych listenerow
     socket.off('admin_new_message');
     socket.off('new_message');
     socket.off('active_chats_list');
     socket.off('chat_history');
     socket.off('force_refresh_profile');
+
+    socket.off('plant_update');
+
+    // live dane od roslin
+    socket.on('plant_update', (data) => {
+        console.log("LIVE DATA:", data);
+
+        // zwykly uzytkownik
+        if (ROLE !== 'admin') {
+            // czy cos jest w wyszukiwarce zeby nie odswiezyc wyszukan
+            const searchValue = document.getElementById('searchPlantInput').value;
+            // odswiezenie listy
+            loadPlants(searchValue ? `?search=${searchValue}` : '');
+        }
+        
+        // admin
+        else if (ROLE === 'admin') {
+            // admina odswiezamy jesli aktualnie patrzy na uzytkownika do ktorego nalezy ta roslina
+            if (currentViewedUserId && String(data.ownerId) === String(currentViewedUserId)) {
+                 const searchValue = document.getElementById('searchPlantInput').value;
+                
+                 let query = `?userId=${currentViewedUserId}`;
+                 if (searchValue) query += `&search=${searchValue}`;
+                 
+                 loadPlants(query);
+            }
+        }
+    });
 
     // automatyczne odswiezanie profilu jesli admin zmienil komus nazwe
     socket.on('force_refresh_profile', (data) => {
