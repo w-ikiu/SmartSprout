@@ -176,7 +176,7 @@ const authenticate = (req, res, next) => {
 
 // ENDPOINTY REJESTRACJI I LOGOWANIA
 
-// rejestracja
+// POST -> rejestracja
 app.post('/api/register', (req, res) => {
     const { username, password } = req.body;
     
@@ -205,7 +205,7 @@ app.post('/api/register', (req, res) => {
     );
 });
 
-// logowanie
+// POST -> logowanie
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
 
@@ -233,7 +233,7 @@ app.post('/api/login', (req, res) => {
     });
 });
 
-// wylogowanie
+// POST -> wylogowanie
 app.post('/api/logout', (req, res) => {
     // pobranie tokenu z ciasteczka
     const token = req.cookies.token;
@@ -245,9 +245,9 @@ app.post('/api/logout', (req, res) => {
     res.json({success: true});
 });
 
-// API DLA ADMINA
+// API UZYTKOWNIKOW
 
-// lista wszystkich uzytkownikow
+// GET -> lista wszystkich uzytkownikow
 app.get('/api/users/', authenticate, (req, res) => {
 
     // jesli rola to nie admin
@@ -262,7 +262,41 @@ app.get('/api/users/', authenticate, (req, res) => {
     });
 });
 
-// usuwanie uzytkownika
+// PUT -> zmiana nazwy uzytkownika
+app.put('/api/users/:id/username', authenticate, (req, res) => {
+    const targetId = req.params.id;
+    const { newUsername } = req.body;
+
+    if (!newUsername) return res.status(400).json({error: "Podaj nową nazwę."});
+
+    // tylko admin lub wlasciciel moze zmienic nazwe konta
+    if (req.user.role !== 'admin' && String(req.user.userId) !== String(targetId)) {
+        return res.status(403).json({error: "Możesz zmienić tylko własną nazwę."});
+    }
+
+    db.run("UPDATE users SET username = ? WHERE id = ?", [newUsername, targetId], function(err) {
+        if (err) return res.status(500).json({error: "Nazwa zajęta lub błąd bazy."});
+
+        // aktualizacja sesji w pamieci RAM
+        // musimy znalezc sesje tego uzytkownika i zaktualizowac w niej imie zeby po odswiezeniu strony frontend dostal nowe dane
+        
+        // aktualizacja biezacej sesji (jeśli to user zmienia sobie)
+        if (sessions[req.token] && String(sessions[req.token].userId) === String(targetId)) {
+            sessions[req.token].username = newUsername;
+        }
+
+        // aktualizacja wszystkich sesji tego usera (jesli jest na wielu urzadzeniach)
+        Object.keys(sessions).forEach(key => {
+            if (String(sessions[key].userId) === String(targetId)) {
+                sessions[key].username = newUsername;
+            }
+        });
+
+        res.json({ success: true, newUsername });
+    });
+});
+
+// DELETE -> usuwanie uzytkownika
 app.delete('/api/users/:id', authenticate, (req, res) => {
     if (req.user.role !== 'admin') return res.status(403).json({error: "Brak uprawnień."});
     const idToDelete = req.params.id;
@@ -422,6 +456,18 @@ app.get('/api/logs', authenticate, (req, res) => {
         res.json(rows);
     });
 })
+
+// DELETE -> usuwanie logow
+app.delete('/api/logs/:id', authenticate, (req, res) => {
+    // tylko admin może czyscic historie
+    if (req.user.role !== 'admin') return res.status(403).json({error: "Tylko admin może usuwać logi."});
+    
+    const logId = req.params.id;
+    db.run("DELETE FROM logs WHERE id = ?", logId, function(err) {
+        if (err) return res.status(500).json({error: err.message});
+        res.json({ success: true });
+    });
+});
 
 // OBSLUGA WEBSOCKET + logi do debugowania
 
