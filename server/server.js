@@ -269,6 +269,11 @@ app.put('/api/users/:id/username', authenticate, (req, res) => {
 
     if (!newUsername) return res.status(400).json({error: "Podaj nową nazwę."});
 
+    // nie mozna zmienic nazwy admina
+    if (String(targetId) === '1') {
+        return res.status(403).json({error: "Nie można zmienić nazwy administratora."});
+    }
+
     // tylko admin lub wlasciciel moze zmienic nazwe konta
     if (req.user.role !== 'admin' && String(req.user.userId) !== String(targetId)) {
         return res.status(403).json({error: "Możesz zmienić tylko własną nazwę."});
@@ -291,6 +296,9 @@ app.put('/api/users/:id/username', authenticate, (req, res) => {
                 sessions[key].username = newUsername;
             }
         });
+
+        // sygnal websocket do uzytkownika ktoremu admin zmienil nazwe zeby zmienila sie od razu
+        io.to(`user_${targetId}`).emit('force_refresh_profile', { newName: newUsername });
 
         res.json({ success: true, newUsername });
     });

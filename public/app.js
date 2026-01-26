@@ -563,12 +563,29 @@ function initChat() {
     // log do testow
     console.log("FRONTEND: Inicjalizuję czat dla ID:", userId);
 
+    // czyszczenie starych listenerow
     socket.emit('identify', userId);
-    
     socket.off('admin_new_message');
     socket.off('new_message');
     socket.off('active_chats_list');
     socket.off('chat_history');
+    socket.off('force_refresh_profile');
+
+    // automatyczne odswiezanie profilu jesli admin zmienil komus nazwe
+    socket.on('force_refresh_profile', (data) => {
+        console.log("Otrzymano sygnał zmiany nazwy:", data.newName);
+        
+        // aktualizacja localstorage
+        localStorage.setItem('username', data.newName);
+        
+        // alert do uzytkownika
+        if (localStorage.getItem('userId') === userId) {
+            alert(`Twoja nazwa użytkownika została zmieniona przez administratora na: "${data.newName}". \nStrona zostanie odświeżona.`);
+            
+            // przeladowanie strony
+            location.reload(); 
+        }
+    });
 
     if (USERNAME === 'admin' || ROLE === 'admin') {
         // dla admina
@@ -697,7 +714,7 @@ async function loadLogs() {
 
             return `
                 <div style="border-bottom:1px solid #eee; padding:8px 0;">
-                    <span style="color:#888; font-size:11px; margin-right:5px;">[${time}]</span>
+                    ${deleteBtn} <span style="color:#888; font-size:11px; margin-right:5px;">[${time}]</span>
                     ${ownerPrefix}
                     <span style="color:#2e7d32; font-weight:600;">${l.plant_name}:</span> 
                     <span style="color:#555;">${l.message}</span>
