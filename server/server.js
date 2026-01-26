@@ -161,13 +161,14 @@ db.serialize(() => {
 const sessions = {};
 
 const authenticate = (req, res, next) => {
-    const token = req.headers['authorization'] || req.cookies['token'];
+    const token = req.cookies.token || req.headers['authorization'];
 
     if (!token || !sessions[token]) {
         return res.status(401).json({ error: "Brak dostępu. Zaloguj się."});
     }
 
-    req.user = sessions[token]
+    req.user = sessions[token];
+    req.token = token;
     next();
 }
 
@@ -218,13 +219,13 @@ app.post('/api/login', (req, res) => {
         const token = uuidv4();
         sessions[token] = { userId: user.id, role: user.role, username: user.username };
 
+        // ustawianie ciasteczka
         res.cookie('token', token, {
             httpOnly: true,
             maxAge: 3600000 // godzina
         });
 
         res.json({ 
-            token, 
             role: user.role, 
             username: user.username, 
             userId: user.id
@@ -234,9 +235,14 @@ app.post('/api/login', (req, res) => {
 
 // wylogowanie
 app.post('/api/logout', (req, res) => {
-    const token = req.headers['authorization'];
+    // pobranie tokenu z ciasteczka
+    const token = req.cookies.token;
+
     if (token) delete sessions[token];
-    res.json({ success: true });
+
+    // usuniecie ciasteczka z przegladarki
+    res.clearCookie('token');
+    res.json({success: true});
 });
 
 // API DLA ADMINA

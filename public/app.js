@@ -6,17 +6,28 @@ socket.on('connect', () => {
     console.log("Połączono z serwerem WS. ID:", socket.id)
 })
 
-// pobranie danych z localStorage
-let TOKEN = localStorage.getItem('token');
 let ROLE = localStorage.getItem('role');
 let USERNAME = localStorage.getItem('username');
-
-// interwal odswiezania aplikacji zeby wilgotnosc spadala in real time
 let refreshInterval = null;
 
-// jezeli uzytkownik jest zalogowany to pokazujemy aplikacje
-if (TOKEN) {
-    showApp();
+// zamiast if(TOKEN) sprawdzamy sesję na serwerze
+checkSession();
+
+async function checkSession() {
+    // proba pobrania listy roslin
+    // jesli jest cookie, serwer zwroci 200, jesli nie 401
+    try {
+        const res = await fetch('/api/plants');
+        if (res.ok) {
+            showApp();
+        } else {
+            // jesli brak sesji upewniamy sie ze UI jest czyste
+            document.getElementById('loginView').style.display = 'block';
+            document.getElementById('appView').style.display = 'none';
+        }
+    } catch (e) {
+        console.error("Błąd sprawdzania sesji:", e);
+    }
 }
 
 // funkcja pomocnicza dla admina ktora przechowuje id aktualnie przegladanego uzytkownika
@@ -48,13 +59,11 @@ async function auth(action) {
             alert("Zarejestrowano pomyślnie! Teraz możesz się zalogować.");
         } else {
             // przy logowaniu zapisujemy dane do localStorage !!!
-            localStorage.setItem('token', data.token);
             localStorage.setItem('role', data.role);
             localStorage.setItem('username', data.username);
             localStorage.setItem('userId', data.userId);
             
             // aktualizacja zmiennych globalnych
-            TOKEN = data.token;
             ROLE = data.role;
             USERNAME = data.username;
             
@@ -66,7 +75,13 @@ async function auth(action) {
 }
 
 // wylogowanie
-function logout() {
+async function logout() {
+    try {
+        await fetch('/api/logout', { method: 'POST' });
+    } catch (e) {
+        console.log(e);
+    }
+
     localStorage.clear();
     // przeladowanie zeby wrocic do "czystego" stanu
     location.reload();
@@ -77,9 +92,7 @@ function logout() {
 
 // query params do np filtrowania, jak filtruje przekazuje inna sciezke do serwera, np zeby wzial tylko pewne dane od uzytkownika o id 5
 async function loadPlants(queryParams = '') {
-    const res = await fetch(`/api/plants${queryParams}`, {
-        headers: { 'Authorization': TOKEN }
-    });
+    const res = await fetch(`/api/plants${queryParams}`);
     
     if (res.status === 401) { logout(); return; }
 
@@ -88,7 +101,7 @@ async function loadPlants(queryParams = '') {
     list.innerHTML = '';
 
     if (plants.length === 0) {
-        list.innerHTML = '<p class="empty-list">Brak roślin do wyświetlenia.</p>';
+        list.innerHTML = '<p style="width: 500px; text-align: center;">Brak roślin do wyświetlenia.</p>';
         return;
     }
 
@@ -157,7 +170,6 @@ async function editPlant(id, oldName) {
             method: 'PUT',
             headers: { 
                 'Content-Type': 'application/json',
-                'Authorization': TOKEN 
             },
             body: JSON.stringify({ name: newName })
         });
@@ -181,7 +193,7 @@ async function editPlant(id, oldName) {
 // LOAD USERS FOR ADMIN
 // wyswietlanie uzytkownikow dla admina
 async function loadUsersForAdmin() {
-    const res = await fetch('/api/users', { headers: {'Authorization': TOKEN} });
+    const res = await fetch('/api/users');
     const users = await res.json();
 
     const tbody = document.getElementById('usersListBody');
@@ -250,8 +262,7 @@ async function deleteUser(event, id, username) {
 
     try {
         const res = await fetch(`/api/users/${id}`, {
-            method: 'DELETE',
-            headers: { 'Authorization': TOKEN }
+            method: 'DELETE'
         });
 
         const data = await res.json();
@@ -286,7 +297,7 @@ async function addPlant() {
 
     await fetch('/api/plants', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': TOKEN },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ name: name })
     });
 
@@ -302,8 +313,7 @@ async function deletePlant(id) {
 
     // wyslanie zadania DELETE do serwera
     await fetch(`/api/plants/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': TOKEN }
+        method: 'DELETE'
     });
 
     // odswiezenie listy po usunieciu
@@ -318,8 +328,7 @@ async function waterPlant(id) {
     // zadanie do serwera
     try {
         const res = await fetch(`/api/plants/${id}/water`, {
-            method: 'POST',
-            headers: { 'Authorization': TOKEN }
+            method: 'POST'
         });
         const data = await res.json();
         
@@ -601,7 +610,7 @@ async function loadLogs() {
     setTimeout(() => { if(btn) btn.style.transform = 'rotate(0deg)'; }, 500);
 
     try {
-        const res = await fetch('/api/logs', { headers: { 'Authorization': TOKEN } });
+        const res = await fetch('/api/logs');
         const logs = await res.json();
 
         if (!Array.isArray(logs) || logs.length === 0) {
