@@ -3,7 +3,7 @@ const sqlite3 = require('sqlite3').verbose();
 const path = require('path');
 
 // polaczenie z tym samym brokerem co serwer
-const MQTT_BROKER = 'mqtt://test.mosquitto.org';
+const MQTT_BROKER = 'mqtt://localhost';
 const client = mqtt.connect(MQTT_BROKER);
 
 // polaczenie z baza danych aby miec dostep do roslin

@@ -45,7 +45,7 @@ function logSystemEvent(plantId, message) {
 // KONFIGURACJA MQTT
 
 // nie instaluje na razie hiveMQ lokalnie
-const MQTT_BROKER = 'mqtt://test.mosquitto.org'; 
+const MQTT_BROKER = 'mqtt://localhost'; 
 const mqttClient = mqtt.connect(MQTT_BROKER);
 
 mqttClient.on('connect', () => {
@@ -58,27 +58,49 @@ mqttClient.on('connect', () => {
 mqttClient.on('message', (topic, message) => {
     try {
         const payload = JSON.parse(message.toString());
-        // np. topic: smartsprout/plant/1/data
-        // data: { temp: 22.5, humidity: 40 }
-        
+        // topic: np smartsprout/plant/1/data
         const topicParts = topic.split('/');
         const plantId = topicParts[2];
 
         if (topicParts[3] === 'data') {
-            
             const temp = parseFloat(payload.temp);
             const hum = parseInt(payload.humidity);
-            
-            // konwersja boolean (true/false) na int (1/0) dla SQLite
             const heaterVal = payload.heater ? 1 : 0;
             const fanVal = payload.fan ? 1 : 0;
 
-            // aktualizacja bazy
+            // aktualizacja w bazie
             db.run(
                 "UPDATE plants SET temperature = ?, humidity = ?, heater_status = ?, fan_status = ? WHERE id = ?", 
                 [temp, hum, heaterVal, fanVal, plantId],
                 (err) => {
-                    if (err) console.error("Błąd SQL:", err.message);
+                    if (err) return console.error("Błąd SQL update:", err.message);
+
+                    // pobranie id wlasciciela rosliny zeby wiadomo bylo do kogo wyslac powiadomienie
+                    db.get("SELECT owner_id FROM plants WHERE id = ?", [plantId], (err, row) => {
+                        if (row) {
+                            // wysylanie live data przez websocket
+                            
+                            // do wlasciciela rosliny
+                            io.to(`user_${row.owner_id}`).emit('plant_update', {
+                                plantId: plantId,
+                                temp: temp,
+                                humidity: hum,
+                                heater: heaterVal,
+                                fan: fanVal,
+                                ownerId: row.owner_id
+                            });
+
+                            // do admina (zmiany w podgladzie)
+                            io.to('admins').emit('plant_update', {
+                                plantId: plantId,
+                                temp: temp,
+                                humidity: hum,
+                                heater: heaterVal,
+                                fan: fanVal,
+                                ownerId: row.owner_id
+                            });
+                        }
+                    });
                 }
             );
 
