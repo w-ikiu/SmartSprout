@@ -4,6 +4,8 @@ const sqlite3 = require('sqlite3').verbose();
 const bodyParser = require('body-parser');
 const path = require('path');
 const cors = require('cors');
+const fs = require('fs');
+const https = require('https');
 // do szyfrowania hasel
 const bcrypt = require('bcryptjs'); 
 // do generowania tokenow
@@ -20,8 +22,13 @@ const cookieParser = require('cookie-parser');
 const app = express();
 const PORT = 3000;
 
-const server = http.createServer(app);
+// wczytanie certyfikatow openssl
+const options = {
+    key: fs.readFileSync(path.join(__dirname, '../key.pem')),
+    cert: fs.readFileSync(path.join(__dirname, '../cert.pem'))
+};
 
+const server = https.createServer(options, app);
 const io = new Server(server);
 
 // app.use
@@ -566,5 +573,5 @@ io.on('connection', (socket) => {
 
 // start serwera
 server.listen(PORT, () => {
-    console.log(`Serwer działa na http://localhost:${PORT}`);
+    console.log(`Serwer HTTPS, działa na http://localhost:${PORT}`);
 });
