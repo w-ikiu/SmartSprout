@@ -45,7 +45,7 @@ function logSystemEvent(plantId, message) {
 // KONFIGURACJA MQTT
 
 // nie instaluje na razie hiveMQ lokalnie
-const MQTT_BROKER = 'mqtt://test.mosquitto.org'; 
+const MQTT_BROKER = 'mqtt://localhost'; 
 const mqttClient = mqtt.connect(MQTT_BROKER);
 
 mqttClient.on('connect', () => {
