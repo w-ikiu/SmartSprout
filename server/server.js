@@ -13,9 +13,9 @@ const { v4: uuidv4 } = require('uuid');
 // mqtt
 const mqtt = require('mqtt');
 // ws
-const http = require('http');
+// const http = require('http');
 const { Server } = require("socket.io");
-const { Socket } = require('dgram');
+// const { Socket } = require('dgram');
 // cookies
 const cookieParser = require('cookie-parser');
 
@@ -39,6 +39,7 @@ app.use(cors());
 app.use(bodyParser.json());
 app.use(express.static(path.join(__dirname, '../public')));
 
+// uzywamy ciasteczek
 app.use(cookieParser());
 
 // DODAWANIE LOGOW DO TABELI
@@ -51,7 +52,7 @@ function logSystemEvent(plantId, message) {
 
 // KONFIGURACJA MQTT
 
-// nie instaluje na razie hiveMQ lokalnie
+// hiveMQ lokalnie
 const MQTT_BROKER = 'mqtt://localhost'; 
 const mqttClient = mqtt.connect(MQTT_BROKER);
 
@@ -205,7 +206,7 @@ const authenticate = (req, res, next) => {
 
 // ENDPOINTY REJESTRACJI I LOGOWANIA
 
-// POST -> rejestracja
+// CREATE -> rejestracja
 app.post('/api/register', (req, res) => {
     const { username, password } = req.body;
     
@@ -234,7 +235,7 @@ app.post('/api/register', (req, res) => {
     );
 });
 
-// POST -> logowanie
+// CREATE -> logowanie
 app.post('/api/login', (req, res) => {
     const { username, password } = req.body;
 
@@ -262,7 +263,7 @@ app.post('/api/login', (req, res) => {
     });
 });
 
-// POST -> wylogowanie
+// DELETE -> wylogowanie
 app.post('/api/logout', (req, res) => {
     // pobranie tokenu z ciasteczka
     const token = req.cookies.token;
@@ -276,7 +277,7 @@ app.post('/api/logout', (req, res) => {
 
 // API UZYTKOWNIKOW
 
-// GET -> lista wszystkich uzytkownikow
+// READ -> lista wszystkich uzytkownikow
 app.get('/api/users/', authenticate, (req, res) => {
 
     // jesli rola to nie admin
@@ -291,7 +292,7 @@ app.get('/api/users/', authenticate, (req, res) => {
     });
 });
 
-// PUT -> zmiana nazwy uzytkownika
+// UPDATE -> zmiana nazwy uzytkownika
 app.put('/api/users/:id/username', authenticate, (req, res) => {
     const targetId = req.params.id;
     const { newUsername } = req.body;
@@ -353,7 +354,7 @@ app.delete('/api/users/:id', authenticate, (req, res) => {
 
 // API ROSLIN
 
-// GET -> pobranie listy roslin
+// READ -> pobranie listy roslin
 app.get('/api/plants', authenticate, (req, res) => {
     let sql = "SELECT * FROM plants";
     let params = [];
@@ -391,7 +392,7 @@ app.get('/api/plants', authenticate, (req, res) => {
     });
 });
 
-// POST -> dodanie rosliny do listy
+// CREATE -> dodanie rosliny do listy
 app.post('/api/plants', authenticate, (req, res) => {
     const { name } = req.body;
     if (!name) return res.status(400).json({error: "Nie podano nazwy."});
@@ -421,7 +422,7 @@ app.delete('/api/plants/:id', authenticate, (req, res) => {
     });
 });
 
-// POST -> symulacja podlewania roslin
+// symulacja podlewania roslin
 app.post('/api/plants/:id/water', authenticate, (req, res) => {
     const id = req.params.id;
     
@@ -439,7 +440,7 @@ app.post('/api/plants/:id/water', authenticate, (req, res) => {
     });
 });
 
-// PUT -> aktualizacja nazwy rosliny
+// UPDATE -> aktualizacja nazwy rosliny
 app.put('/api/plants/:id', authenticate, (req, res) => {
     const id = req.params.id;
     const { name } = req.body;
@@ -472,7 +473,7 @@ app.put('/api/plants/:id', authenticate, (req, res) => {
 
 // API LOGOW
 
-// GET -> pobranie ostatnich logow
+// READ -> pobranie ostatnich logow
 app.get('/api/logs', authenticate, (req, res) => {
     // admin widzi wszystkie, uzytkownicy tylko swoje
     let sql = `SELECT l.id, l.message, l.timestamp, p.name as plant_name, u.username FROM logs l JOIN plants p ON l.plant_id = p.id JOIN users u ON p.owner_id = u.id`;
@@ -573,5 +574,5 @@ io.on('connection', (socket) => {
 
 // start serwera
 server.listen(PORT, () => {
-    console.log(`Serwer HTTPS, działa na http://localhost:${PORT}`);
+    console.log(`Serwer HTTPS działa na http://localhost:${PORT}`);
 });
