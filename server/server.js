@@ -327,8 +327,10 @@ app.put('/api/users/:id/username', authenticate, (req, res) => {
             }
         });
 
-        // sygnal websocket do uzytkownika ktoremu admin zmienil nazwe zeby zmienila sie od razu
-        io.to(`user_${targetId}`).emit('force_refresh_profile', { newName: newUsername });
+        if (String(req.user.userId) !== String(targetId)) {
+            // sygnal websocket do uzytkownika ktoremu admin zmienil nazwe zeby zmienila sie od razu
+            io.to(`user_${targetId}`).emit('force_refresh_profile', { newName: newUsername });
+        }
 
         res.json({ success: true, newUsername });
     });
