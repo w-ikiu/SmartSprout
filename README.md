@@ -46,6 +46,8 @@ The project emphasizes standard web security practices:
 4.  Start the simulator in a separate terminal: `node simulator.js`
 5.  Access the application: `https://localhost:3000`
 
+Note on Security: This repository contains historical commits with development credentials (self-signed certificates and a test database). These are intended for local development (localhost) only and are not sensitive in a production context.
+
 # SmartSprout - System Monitorowania Roślin IoT
 
 **SmartSprout** to symulacja kompletnego systemu Smart Home przeznaczonego do monitorowania i automatyzacji hodowli roślin domowych. Projekt integruje technologie internetowe z protokołami IoT, tworząc bezpieczną i responsywną platformę typu SPA (Single Page Application).
@@ -93,5 +95,7 @@ Projekt kładzie duży nacisk na bezpieczne praktyki webowe:
 3.  Uruchom serwer: `node server.js`
 4.  Uruchom symulator w osobnej konsoli: `node simulator.js`
 5.  Otwórz aplikację w przeglądarce: `https://localhost:3000`
+
+O bezpieczeństwie: W historii commitów tego repozytorium mogą znajdować się pliki wrażliwe, takie jak klucze prywatne TLS (`key.pem`) oraz plik bazy danych (`database.db`). Zostały one zachowane celowo, aby umożliwić łatwe uruchomienie projektu w środowisku deweloperskim (`localhost`) oraz do celów demonstracyjnych. Certyfikaty są typu *Self-Signed*, a baza danych zawiera wyłącznie fikcyjne dane testowe. W przypadku wdrażania aplikacji w środowisku produkcyjnym należy bezwzględnie wygenerować nowe pary kluczy oraz czystą instancję bazy danych.
 
 Wiktoria Chełmińska gr.1
