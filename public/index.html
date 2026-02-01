@@ -34,6 +34,17 @@
             <button onclick="logout()" class="btn-danger">Wyloguj</button>
         </div>
 
+        <div class="tabs-container" style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <button onclick="switchTab('my')" id="btnTabMy" class="active-tab" style="background: #8ec090;">Moje rośliny</button>
+            <button onclick="switchTab('community')" id="btnTabCommunity" style="background: #577052;">Społeczność</button>
+        </div>
+
+        <div id="communityContainer" style="display: none;">
+            <h2 style="color: #2E7D32;">Odkrywaj rośliny innych</h2>
+            <div id="communityList" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;">
+                </div>
+        </div>
+
         <div id="adminPanel" style="display:none;">
             <div class="admin-header">
                 <h3>Panel Administratora</h3>
@@ -133,6 +144,22 @@
                 <label class="setting-label danger-text">Zarządzanie historią</label>
                 <p class="setting-desc">Jeśli logi zajmują za dużo miejsca, możesz je wyczyścić.</p>
                 <button onclick="clearPlantLogs()" class="btn-danger-modal">Wyczyść historię</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- komentarze -->
+    <div id="commentsModal" class="modal">
+        <div class="modal-content" style="max-width: 500px;"> <span class="close-btn" onclick="closeCommentsModal()">&times;</span>
+            <h2 id="commentsPlantName" style="color: #2E7D32;">Komentarze</h2>
+            
+            <div id="commentsList" style="text-align: left; max-height: 300px; overflow-y: auto; margin-bottom: 20px; background: #f9f9f9; padding: 10px; border-radius: 10px;">
+                <p style="color:#aaa; text-align:center;">Brak komentarzy. Bądź pierwszy!</p>
+            </div>
+
+            <div style="display: flex; gap: 10px;">
+                <input type="text" id="newCommentInput" class="modal-input" style="margin:0;" placeholder="Napisz coś...">
+                <button onclick="addComment()" class="btn-save" style="width: auto; margin:0;">Wyślij</button>
             </div>
         </div>
     </div>

@@ -743,7 +743,7 @@ async function deleteLog(logId) {
     }
 }
 
-// nowe funkcjonalnosci CRUD
+// NOWE FUNKCJONALNOSCI
 
 let currentSettingsPlantId = null;
 
@@ -813,4 +813,185 @@ window.onclick = function(event) {
     if (event.target == modal) {
         modal.style.display = "none";
     }
+}
+
+// komentarze
+
+let currentCommentPlantId = null;
+
+// otwieranie modala i pobieranie komentarzy
+async function openComments(plantId, plantName) {
+    currentCommentPlantId = plantId;
+    document.getElementById('commentsPlantName').innerText = `💬 ${plantName}`;
+    document.getElementById('commentsModal').style.display = 'flex';
+    
+    loadComments(plantId);
+}
+
+function closeCommentsModal() {
+    document.getElementById('commentsModal').style.display = 'none';
+}
+
+// pobieranie listy (READ)
+async function loadComments(plantId) {
+    const list = document.getElementById('commentsList');
+    list.innerHTML = '<p style="text-align:center;">Ładowanie...</p>';
+
+    const res = await fetch(`/api/plants/${plantId}/comments`);
+    const comments = await res.json();
+
+    list.innerHTML = '';
+    if (comments.length === 0) {
+        list.innerHTML = '<p style="color:#aaa; text-align:center;">Brak komentarzy.</p>';
+        return;
+    }
+
+    const currentUserId = localStorage.getItem('userId');
+
+    comments.forEach(c => {
+        // czy moj komentarz
+        const isMine = String(c.user_id) === String(currentUserId);
+        const editBtn = isMine ? `<small style="color:blue; cursor:pointer; margin-left:10px;" onclick="editComment(${c.id}, '${c.content}')">Edytuj</small>` : '';
+
+        const div = document.createElement('div');
+        div.style.borderBottom = '1px solid #eee';
+        div.style.padding = '8px 0';
+        div.innerHTML = `
+            <div style="font-size:12px; color:#888;">
+                <b>${c.username}</b> <span style="float:right;">${new Date(c.timestamp).toLocaleTimeString()}</span>
+            </div>
+            <div style="font-size:14px; margin-top:4px; color:#333;">
+                ${c.content} ${editBtn}
+            </div>
+        `;
+        list.appendChild(div);
+    });
+    
+    // scroll na dol
+    list.scrollTop = list.scrollHeight;
+}
+
+// dodawanie komentarza (CREATE)
+async function addComment() {
+    const input = document.getElementById('newCommentInput');
+    const content = input.value;
+    if (!content) return;
+
+    await fetch(`/api/plants/${currentCommentPlantId}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+    });
+
+    input.value = '';
+    loadComments(currentCommentPlantId); // odswiezenie listy
+}
+
+// edycja komentarza (UPDATE)
+async function editComment(commentId, oldContent) {
+    const newContent = prompt("Edytuj komentarz:", oldContent);
+    if (!newContent || newContent === oldContent) return;
+
+    const res = await fetch(`/api/comments/${commentId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newContent })
+    });
+
+    if (res.ok) {
+        loadComments(currentCommentPlantId);
+    } else {
+        alert("Błąd edycji.");
+    }
+}
+
+// live update kiedy ktos inny skomentuje
+socket.on('plant_new_comment', (data) => {
+    // odswiezenie tylko jesli mam otwarte okno TEJ rosliny
+    if (document.getElementById('commentsModal').style.display === 'flex' && 
+        String(currentCommentPlantId) === String(data.plant_id)) {
+        loadComments(currentCommentPlantId);
+    }
+});
+
+// spolecznosc
+
+// przelaczanie zakladek
+function switchTab(tab) {
+    const myContainer = document.getElementById('userPanel');
+    const myList = document.getElementById('plantsList');
+    const commContainer = document.getElementById('communityContainer');
+    const searchBar = document.getElementById('plantSearchContainer');
+
+    if (tab === 'my') {
+        // moje
+        myContainer.style.display = 'flex';
+        myList.style.display = 'grid';
+        searchBar.style.display = 'block';
+        commContainer.style.display = 'none';
+        
+        document.getElementById('btnTabMy').style.background = '#2E7D32';
+        document.getElementById('btnTabCommunity').style.background = '#aaa';
+        
+        loadPlants();
+    } else {
+        // spolecznosc
+        myContainer.style.display = 'none';
+        myList.style.display = 'none';
+        searchBar.style.display = 'none';
+        commContainer.style.display = 'block';
+
+        document.getElementById('btnTabMy').style.background = '#aaa';
+        document.getElementById('btnTabCommunity').style.background = '#2E7D32';
+
+        loadCommunityPlants();
+    }
+}
+
+// pobranie roslin innych (READ)
+async function loadCommunityPlants() {
+    const list = document.getElementById('communityList');
+    list.innerHTML = 'Ładowanie świata...';
+
+    const res = await fetch('/api/community/plants');
+    const plants = await res.json();
+    
+    list.innerHTML = '';
+
+    plants.forEach(p => {
+        const div = document.createElement('div');
+        div.className = 'plant-item';
+        
+        // HTML kafelka spolecznosci
+        div.innerHTML = `
+            <div style="width: 100%;">
+                <div class="plant-header">
+                    <span class="plant-name">🌱 ${p.name}</span>
+                </div>
+                <small style="color: #2E7D32; font-weight: bold;">Właściciel: ${p.owner_name}</small>
+                
+                <div class="plant-stats" style="margin-top: 10px;">
+                    <div class="stat-row">
+                        <span>🌡️ ${p.temperature ? p.temperature.toFixed(1) : '--'}°C</span>
+                        <span>💧 ${p.humidity}%</span>
+                    </div>
+                </div>
+
+                <div class="humidity-bar-container" style="margin-top:10px;">
+                    <div class="humidity-bar-fill bar-green" style="width: ${p.humidity}%;"></div>
+                </div>
+            </div>
+
+            <div class="plant-actions" style="margin-top: 15px;">
+                <button onclick="openComments(${p.id}, '${p.name} (${p.owner_name})')" class="plant-btn" style="background-color: #7B1FA2;">
+                    <span>💬</span> Komentuj
+                </button>
+                
+                <button class="plant-btn" style="background-color: #E91E63;">
+                    <span>❤️</span> Lubię to
+                </button>
+            </div>
+        `;
+        list.appendChild(div);
+    });
 }

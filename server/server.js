@@ -174,6 +174,9 @@ db.serialize(() => {
     // komentarze
     db.run(`CREATE TABLE IF NOT EXISTS comments ( id INTEGER PRIMARY KEY, plant_id INTEGER, user_id INTEGER, username TEXT, content TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)`);
 
+    // polubienia
+    db.run(`CREATE TABLE IF NOT EXISTS likes ( user_id INTEGER, plant_id INTEGER, PRIMARY KEY (user_id, plant_id))`);
+
     // automatyczne utworzenie konta admina
     const adminPassword = 'admin123';
     const salt = bcrypt.genSaltSync(10);
@@ -518,6 +521,7 @@ io.on('connection', (socket) => {
     console.log('Nowy klient WebSocket:', socket.id);
 
     socket.on('identify', (userId) => {
+        socket.userId = userId;
         // uzytkownik dolacza do swojego dedykowanego pokoju
         socket.join(`user_${userId}`);
 
@@ -572,12 +576,45 @@ io.on('connection', (socket) => {
         });
     });
 
+    // NOWE FUNKCJONALNOSCI WEBSOCKET
+
+    // polubienie rosliny
+    socket.on('like_plant', (plantId) => {
+        
+        const userId = socket.userId;
+        
+        if (!userId) return;
+
+        // czy juz polubione
+        db.get("SELECT * FROM likes WHERE user_id = ? AND plant_id = ?", [userId, plantId], (err, row) => {
+            if (!row) {
+                // jesli nie
+                db.run("INSERT INTO likes (user_id, plant_id) VALUES (?, ?)", [userId, plantId], () => {
+                    
+                    // liczenie likeow
+                    db.get("SELECT COUNT(*) as count FROM likes WHERE plant_id = ?", [plantId], (err, res) => {
+                        
+                        // emit do wszystkich ze liczba polubien sie zwiekszyla
+                        io.emit('update_likes', { plantId: plantId, count: res.count });
+                    });
+                });
+            } else {
+                // usuniecie polubienia
+                db.run("DELETE FROM likes WHERE user_id = ? AND plant_id = ?", [userId, plantId], () => {
+                    db.get("SELECT COUNT(*) as count FROM likes WHERE plant_id = ?", [plantId], (err, res) => {
+                        io.emit('update_likes', { plantId: plantId, count: res.count });
+                    });
+                });
+            }
+        });
+    });
+
     socket.on('disconnect', () => {
         console.log('Klient rozłączony:', socket.id);
     });
 });
 
-// DODANE FUNKCJONALNOSCI
+// NOWE FUNKCJONALNOSCI CRUD
 
 // READ -> pobranie danych jednej konkretnej rosliny
 app.get('/api/plants/:id', authenticate, (req, res) => {
@@ -702,6 +739,21 @@ app.put('/api/comments/:id', authenticate, (req, res) => {
             if (err) return res.status(500).json({ error: "Błąd edycji" });
             res.json({ success: true, content });
         });
+    });
+});
+
+// READ -> pobierz rosliny wszystkich
+app.get('/api/community/plants', authenticate, (req, res) => {
+    const sql = `
+        SELECT p.*, u.username as owner_name, 
+        (SELECT COUNT(*) FROM likes WHERE plant_id = p.id) as likes_count
+        FROM plants p 
+        JOIN users u ON p.owner_id = u.id 
+        ORDER BY p.id DESC
+    `;
+    db.all(sql, [], (err, rows) => {
+        if (err) return res.status(500).json({ error: "Błąd bazy" });
+        res.json(rows);
     });
 });
 
