@@ -951,47 +951,86 @@ function switchTab(tab) {
 // pobranie roslin innych (READ)
 async function loadCommunityPlants() {
     const list = document.getElementById('communityList');
-    list.innerHTML = 'Ładowanie świata...';
+    list.innerHTML = '<p style="text-align:center; width:200%;">Ładowanie świata...</p>';
 
-    const res = await fetch('/api/community/plants');
-    const plants = await res.json();
-    
-    list.innerHTML = '';
-
-    plants.forEach(p => {
-        const div = document.createElement('div');
-        div.className = 'plant-item';
+    try {
+        const res = await fetch('/api/community/plants');
+        if (!res.ok) throw new Error("Błąd pobierania");
         
-        // HTML kafelka spolecznosci
-        div.innerHTML = `
-            <div style="width: 100%;">
-                <div class="plant-header">
-                    <span class="plant-name">🌱 ${p.name}</span>
-                </div>
-                <small style="color: #2E7D32; font-weight: bold;">Właściciel: ${p.owner_name}</small>
-                
-                <div class="plant-stats" style="margin-top: 10px;">
-                    <div class="stat-row">
-                        <span>🌡️ ${p.temperature ? p.temperature.toFixed(1) : '--'}°C</span>
-                        <span>💧 ${p.humidity}%</span>
+        const plants = await res.json();
+        list.innerHTML = '';
+
+        if (plants.length === 0) {
+            list.innerHTML = '<p>Brak roślin w społeczności.</p>';
+            return;
+        }
+
+        plants.forEach(p => {
+            const div = document.createElement('div');
+            div.className = 'plant-item';
+            
+            // HTML kafelka spolecznosci
+            div.innerHTML = `
+                <div style="width: 100%;">
+                    <div class="plant-header">
+                        <span class="plant-name">🌱 ${p.name}</span>
+                    </div>
+                    <small style="color: #2E7D32; font-weight: bold;">Właściciel: ${p.owner_name}</small>
+                    
+                    <div class="plant-stats" style="margin-top: 10px;">
+                        <div class="stat-row">
+                            <span>🌡️ ${p.temperature ? p.temperature.toFixed(1) : '--'}°C</span>
+                            <span>💧 ${p.humidity}%</span>
+                        </div>
+                    </div>
+
+                    <div class="humidity-bar-container" style="margin-top:10px;">
+                        <div class="humidity-bar-fill bar-green" style="width: ${p.humidity}%;"></div>
                     </div>
                 </div>
 
-                <div class="humidity-bar-container" style="margin-top:10px;">
-                    <div class="humidity-bar-fill bar-green" style="width: ${p.humidity}%;"></div>
+                <div class="plant-actions" style="margin-top: 15px;">
+                    <button onclick="openComments(${p.id}, '${p.name} (${p.owner_name})')" class="plant-btn" style="background-color: #7B1FA2;">
+                        <span>💬</span> Komentuj
+                    </button>
+                    
+                    <button onclick="likePlant(${p.id})" class="plant-btn" style="background-color: #E91E63;">
+                        <span>❤️</span> <span id="likes-count-${p.id}">${p.likes_count || 0}</span>
+                    </button>
                 </div>
-            </div>
-
-            <div class="plant-actions" style="margin-top: 15px;">
-                <button onclick="openComments(${p.id}, '${p.name} (${p.owner_name})')" class="plant-btn" style="background-color: #7B1FA2;">
-                    <span>💬</span> Komentuj
-                </button>
-                
-                <button class="plant-btn" style="background-color: #E91E63;">
-                    <span>❤️</span> Lubię to
-                </button>
-            </div>
-        `;
-        list.appendChild(div);
-    });
+            `;
+            list.appendChild(div);
+        });
+    } catch (e) {
+        console.error(e);
+        list.innerHTML = '<p>Błąd ładowania.</p>';
+    }
 }
+
+// polubienie rosliny
+function likePlant(plantId) {
+    // sygnal do serwera ze wysylamy polubienie
+    socket.emit('like_plant', plantId);
+    
+    // animacja
+    const btn = document.getElementById(`likes-count-${plantId}`).parentElement;
+    btn.style.transform = "scale(0.95)";
+    setTimeout(() => btn.style.transform = "scale(1)", 100);
+}
+
+// odbieranie aktualizacji licznika
+socket.on('update_likes', (data) => {
+    // data = { plantId: 123, count: 5 }
+    
+    // szukamy licznika tej konkretnej rosliny
+    const counterElement = document.getElementById(`likes-count-${data.plantId}`);
+    
+    if (counterElement) {
+        // aktualizacja liczby polubien
+        counterElement.innerText = data.count;
+        
+        counterElement.style.transition = "0.2s";
+        counterElement.style.transform = "scale(1.5)";
+        setTimeout(() => counterElement.style.transform = "scale(1)", 200);
+    }
+});
