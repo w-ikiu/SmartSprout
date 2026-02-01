@@ -30,7 +30,7 @@ body {
 
 body > div, h1 {
     width: 100%;
-    max-width: 480px;
+    max-width: 580px;
     margin-left: auto;
     margin-right: auto;
 }
@@ -207,13 +207,14 @@ input:focus {
     font-size: 0.9em;
     color: var(--text-gray);
     display: grid;
-    gap: 8px;
+    gap: 12px;
 }
 
 .stat-row {
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 15px;
 }
 
 .status-badge {
@@ -264,7 +265,9 @@ input:focus {
 .plant-actions {
     margin-top: 20px;
     display: flex;
+    justify-content: space-between;
     gap: 10px;
+    width: 100%;
 }
 
 .btn-water {
@@ -356,8 +359,14 @@ button[onclick="logout()"]:hover {
 /* lista roslin */
 #plantsList {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 15px;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 20px;
+}
+
+@media (max-width: 600px) {
+    #plantsList {
+        grid-template-columns: 1fr;
+    }
 }
 
 .plant-item {
@@ -372,6 +381,7 @@ button[onclick="logout()"]:hover {
     min-height: 120px;
     position: relative;
     transition: transform 0.2s;
+    overflow: hidden;
 }
 
 .plant-item:hover {
@@ -395,16 +405,26 @@ button[onclick="logout()"]:hover {
 }
 
 .delete-btn {
-    background-color: transparent;
-    color: var(--text-light);
-    box-shadow: none;
-    width: auto;
-    padding: 5px;
     position: absolute;
-    top: 15px;
-    right: 15px;
+    top: 10px;
+    right: 10px;
+    width: 30px;
+    height: 30px;
+    background-color: #f5f5f5;
+    color: #999;
+    border-radius: 50%;
+    border: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    line-height: 1;
+    cursor: pointer;
+    z-index: 10;
+    padding: 0;
     margin: 0;
-    font-size: 18px;
+    transition: all 0.2s;
+    box-shadow: none !important;
 }
 
 .delete-btn:hover {
@@ -613,4 +633,187 @@ td:last-child { border-radius: 0 15px 15px 0; }
 @keyframes fadeIn {
     from { opacity: 0; transform: translateY(10px); }
     to { opacity: 1; transform: translateY(0); }
+}
+
+/* modal */
+.modal {
+    display: none;
+    position: fixed; 
+    z-index: 9999; 
+    left: 0;
+    top: 0;
+    width: 100vw;
+    height: 100vh;
+    max-width: none !important;
+    background-color: rgba(0,0,0,0.4);
+    backdrop-filter: blur(5px);
+    justify-content: center; 
+    align-items: center;
+    margin: 0;
+}
+
+.modal-content {
+    background-color: white;
+    padding: 30px;
+    border-radius: 20px;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 5px 30px rgba(0,0,0,0.3);
+    position: relative;
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+@keyframes popIn {
+    from { transform: scale(0.8); opacity: 0; }
+    to { transform: scale(1); opacity: 1; }
+}
+
+.close-btn {
+    position: absolute;
+    right: 15px; top: 10px;
+    font-size: 28px;
+    cursor: pointer;
+    color: #aaa;
+}
+.close-btn:hover { color: #000; }
+
+.btn-save {
+    background-color: #2e7d32; color: white; border: none; padding: 8px 15px; 
+    border-radius: 5px; cursor: pointer; margin-top: 10px; width: 100%;
+}
+
+.btn-settings {
+    background-color: #546E7A;
+    color: white;
+    flex: 1;
+    margin: 0;
+    padding: 10px;
+    font-size: 14px;
+}
+
+.btn-settings:hover {
+    background-color: #455A64;
+}
+
+.plant-btn {
+    flex: 1;
+    padding: 10px 5px;
+    border: none;
+    border-radius: 12px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    transition: transform 0.2s, box-shadow 0.2s;
+    color: white;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    height: 45px;
+    margin: 0;
+}
+
+.plant-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 12px rgba(0,0,0,0.15);
+}
+
+.plant-btn span {
+    margin-top: 5px;
+}
+
+#modalPlantName {
+    margin-top: 0;
+    color: #2E7D32;
+    margin-bottom: 20px;
+}
+
+.setting-group {
+    text-align: center;
+    margin-bottom: 15px;
+}
+
+.setting-label {
+    font-weight: 600;
+    color: #333;
+    display: block;
+    margin-bottom: 5px;
+}
+
+.setting-desc {
+    font-size: 12px;
+    color: #666;
+    margin: 0 0 10px 0;
+}
+
+.modal-input {
+    width: 100%;
+    padding: 10px;
+    border: 2px solid #eee;
+    border-radius: 8px;
+    font-size: 16px;
+    margin-bottom: 10px;
+    box-sizing: border-box;
+}
+
+.modal-input:focus {
+    border-color: #4CAF50;
+    background: #fff;
+}
+
+/* Separator (kreska) */
+.separator {
+    height: 1px;
+    background-color: #eee;
+    margin: 20px -30px; /* -30px żeby kreska dotykała krawędzi modala (niweluje padding rodzica) */
+}
+
+/* Strefa Danger (czerwona) */
+.danger-zone {
+    background-color: #fff5f5; /* Lekko czerwone tło */
+    padding: 15px;
+    border-radius: 10px;
+    border: 1px solid #ffcdd2;
+}
+
+.danger-text {
+    color: #d32f2f;
+}
+
+/* Przyciski w modalu */
+.btn-save {
+    width: 100%;
+    padding: 12px;
+    background-color: #2E7D32;
+    color: white;
+    border: none;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: background 0.2s;
+    margin-top: 5px;
+}
+
+.btn-save:hover {
+    background-color: #1B5E20;
+}
+
+.btn-danger-modal {
+    width: 100%;
+    padding: 10px;
+    background-color: white;
+    color: #d32f2f;
+    border: 2px solid #ffebee;
+    border-radius: 8px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-danger-modal:hover {
+    background-color: #d32f2f;
+    color: white;
+    border-color: #d32f2f;
 }

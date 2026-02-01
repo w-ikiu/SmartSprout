@@ -163,13 +163,16 @@ db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT, role TEXT)`);
 
     // rosliny
-    db.run(`CREATE TABLE IF NOT EXISTS plants (id INTEGER PRIMARY KEY, name TEXT, owner_id INTEGER, temperature REAL DEFAULT 0, humidity INTEGER DEFAULT 50, heater_status INTEGER DEFAULT 0, fan_status INTEGER DEFAULT 0)`);
+    db.run(`CREATE TABLE IF NOT EXISTS plants (id INTEGER PRIMARY KEY, name TEXT, owner_id INTEGER, temperature REAL DEFAULT 0, humidity INTEGER DEFAULT 50, heater_status INTEGER DEFAULT 0, fan_status INTEGER DEFAULT 0, min_humidity INTEGER DEFAULT 20)`);
     
     // wiadomosci
     db.run(`CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, sender_id INTEGER, receiver_id INTEGER, content TEXT, sender_name TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)`);
 
     // logi
     db.run(`CREATE TABLE IF NOT EXISTS logs (id INTEGER PRIMARY KEY, plant_id INTEGER, message TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP )`);
+
+    // komentarze
+    db.run(`CREATE TABLE IF NOT EXISTS comments ( id INTEGER PRIMARY KEY, plant_id INTEGER, user_id INTEGER, username TEXT, content TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)`);
 
     // automatyczne utworzenie konta admina
     const adminPassword = 'admin123';
@@ -571,6 +574,134 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log('Klient rozłączony:', socket.id);
+    });
+});
+
+// DODANE FUNKCJONALNOSCI
+
+// READ -> pobranie danych jednej konkretnej rosliny
+app.get('/api/plants/:id', authenticate, (req, res) => {
+    const { id } = req.params;
+    
+    db.get("SELECT * FROM plants WHERE id = ?", [id], (err, row) => {
+        if (err) return res.status(500).json({ error: "Błąd bazy danych" });
+        if (!row) return res.status(404).json({ error: "Nie znaleziono rośliny" });
+
+        // sprawdzenie czy to roslina tego uzytkownika (lub to admin patrzy)
+        if (req.user.role !== 'admin' && String(row.owner_id) !== String(req.user.userId)) {
+            return res.status(403).json({ error: "Brak dostępu do tej rośliny." });
+        }
+
+        res.json(row);
+    });
+});
+
+// UPDATE -> zmiana min humidity do wystapienia alarmu
+app.put('/api/plants/:id/settings', authenticate, (req, res) => {
+    const { id } = req.params;
+    const { minHumidity } = req.body;
+
+    if (minHumidity === undefined) return res.status(400).json({ error: "Brak danych" });
+
+    let sql = "UPDATE plants SET min_humidity = ? WHERE id = ?";
+    let params = [minHumidity, id];
+
+    if (req.user.role !== 'admin') {
+        sql += " AND owner_id = ?";
+        params.push(req.user.userId);
+    }
+
+    db.run(sql, params, function(err) {
+        if (err) return res.status(500).json({ error: "Błąd bazy danych" });
+        if (this.changes === 0) return res.status(403).json({ error: "Brak uprawnień lub nie znaleziono rośliny." });
+
+        logSystemEvent(id, `Zmieniono próg alarmu wilgotności na: ${minHumidity}%`);
+        res.json({ success: true, minHumidity });
+    });
+});
+
+// DELETE -> usuniecie wszystkich logow danej rosliny bez usuwania rosliny
+app.delete('/api/plants/:id/logs', authenticate, (req, res) => {
+    const { id } = req.params;
+
+    // czy roslina jest uzytkownika
+    db.get("SELECT owner_id FROM plants WHERE id = ?", [id], (err, row) => {
+        if (!row) return res.status(404).json({ error: "Roślina nie istnieje" });
+
+        if (req.user.role !== 'admin' && String(row.owner_id) !== String(req.user.userId)) {
+            return res.status(403).json({ error: "To nie twoja roślina." });
+        }
+
+        // usuwanie logow
+        db.run("DELETE FROM logs WHERE plant_id = ?", [id], function(err) {
+            if (err) return res.status(500).json({ error: "Błąd usuwania logów" });
+            
+            // dodanie logu o usunieciu
+            logSystemEvent(id, "Historia zdarzeń została ręcznie wyczyszczona.");
+            res.json({ success: true, message: "Historia wyczyszczona." });
+        });
+    });
+});
+
+// API KOMENTARZY
+
+// READ -> pobranie komentarzy danej rosliny
+app.get('/api/plants/:id/comments', authenticate, (req, res) => {
+    const { id } = req.params;
+    db.all("SELECT * FROM comments WHERE plant_id = ? ORDER BY timestamp DESC", [id], (err, rows) => {
+        if (err) return res.status(500).json({ error: "Błąd bazy" });
+        res.json(rows);
+    });
+});
+
+// CREATE -> dodanie komentarza
+app.post('/api/plants/:id/comments', authenticate, (req, res) => {
+    const { id } = req.params;  // id rosliny
+    const { content } = req.body;
+    
+    if (!content) return res.status(400).json({ error: "Komentarz nie może być pusty." });
+
+    db.run("INSERT INTO comments (plant_id, user_id, username, content) VALUES (?, ?, ?, ?)",
+        [id, req.user.userId, req.user.username, content],
+        function(err) {
+            if (err) return res.status(500).json({ error: "Błąd dodawania" });
+            
+            const newComment = {
+                id: this.lastID,
+                plant_id: id,
+                user_id: req.user.userId,
+                username: req.user.username,
+                content: content,
+                timestamp: new Date()
+            };
+
+            // wyslanie przez websocket ze jest nowy komentarz
+            io.emit('plant_new_comment', newComment);
+
+            res.json(newComment);
+        }
+    );
+});
+
+// UPDATE -> edycja swojego komentarza
+app.put('/api/comments/:id', authenticate, (req, res) => {
+    const { id } = req.params; // id komentarza
+    const { content } = req.body;
+
+    if (!content) return res.status(400).json({ error: "Treść wymagana" });
+
+    // czy komentarz tego uzytkownika czy admina
+    db.get("SELECT user_id FROM comments WHERE id = ?", [id], (err, row) => {
+        if (!row) return res.status(404).json({ error: "Nie znaleziono komentarza" });
+        
+        if (req.user.role !== 'admin' && String(row.user_id) !== String(req.user.userId)) {
+            return res.status(403).json({ error: "Możesz edytować tylko swoje komentarze." });
+        }
+
+        db.run("UPDATE comments SET content = ? WHERE id = ?", [content, id], function(err) {
+            if (err) return res.status(500).json({ error: "Błąd edycji" });
+            res.json({ success: true, content });
+        });
     });
 });
 
