@@ -163,7 +163,7 @@ db.serialize(() => {
     db.run(`CREATE TABLE IF NOT EXISTS users (id INTEGER PRIMARY KEY, username TEXT UNIQUE, password TEXT, role TEXT)`);
 
     // rosliny
-    db.run(`CREATE TABLE IF NOT EXISTS plants (id INTEGER PRIMARY KEY, name TEXT, owner_id INTEGER, temperature REAL DEFAULT 0, humidity INTEGER DEFAULT 50, heater_status INTEGER DEFAULT 0, fan_status INTEGER DEFAULT 0)`);
+    db.run(`CREATE TABLE IF NOT EXISTS plants (id INTEGER PRIMARY KEY, name TEXT, owner_id INTEGER, temperature REAL DEFAULT 0, humidity INTEGER DEFAULT 50, heater_status INTEGER DEFAULT 0, fan_status INTEGER DEFAULT 0, min_humidity INTEGER DEFAULT 20)`);
     
     // wiadomosci
     db.run(`CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY, sender_id INTEGER, receiver_id INTEGER, content TEXT, sender_name TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)`);
@@ -391,6 +391,23 @@ app.get('/api/plants', authenticate, (req, res) => {
     db.all(sql, params, (err, rows) => {
         if (err) return res.status(500).json({error: err.message});
         res.json(rows);
+    });
+});
+
+// READ -> pobranie danych jednej konkretnej rosliny
+app.get('/api/plants/:id', authenticate, (req, res) => {
+    const { id } = req.params;
+    
+    db.get("SELECT * FROM plants WHERE id = ?", [id], (err, row) => {
+        if (err) return res.status(500).json({ error: "Błąd bazy danych" });
+        if (!row) return res.status(404).json({ error: "Nie znaleziono rośliny" });
+
+        // Sprawdzenie czy to roślina tego użytkownika (lub czy user to admin)
+        if (req.user.role !== 'admin' && String(row.owner_id) !== String(req.user.userId)) {
+            return res.status(403).json({ error: "Brak dostępu do tej rośliny." });
+        }
+
+        res.json(row);
     });
 });
 
