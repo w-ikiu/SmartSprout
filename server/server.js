@@ -394,23 +394,6 @@ app.get('/api/plants', authenticate, (req, res) => {
     });
 });
 
-// READ -> pobranie danych jednej konkretnej rosliny
-app.get('/api/plants/:id', authenticate, (req, res) => {
-    const { id } = req.params;
-    
-    db.get("SELECT * FROM plants WHERE id = ?", [id], (err, row) => {
-        if (err) return res.status(500).json({ error: "Błąd bazy danych" });
-        if (!row) return res.status(404).json({ error: "Nie znaleziono rośliny" });
-
-        // Sprawdzenie czy to roślina tego użytkownika (lub czy user to admin)
-        if (req.user.role !== 'admin' && String(row.owner_id) !== String(req.user.userId)) {
-            return res.status(403).json({ error: "Brak dostępu do tej rośliny." });
-        }
-
-        res.json(row);
-    });
-});
-
 // CREATE -> dodanie rosliny do listy
 app.post('/api/plants', authenticate, (req, res) => {
     const { name } = req.body;
@@ -588,6 +571,72 @@ io.on('connection', (socket) => {
 
     socket.on('disconnect', () => {
         console.log('Klient rozłączony:', socket.id);
+    });
+});
+
+// DODANE FUNKCJONALNOSCI
+
+// READ -> pobranie danych jednej konkretnej rosliny
+app.get('/api/plants/:id', authenticate, (req, res) => {
+    const { id } = req.params;
+    
+    db.get("SELECT * FROM plants WHERE id = ?", [id], (err, row) => {
+        if (err) return res.status(500).json({ error: "Błąd bazy danych" });
+        if (!row) return res.status(404).json({ error: "Nie znaleziono rośliny" });
+
+        // sprawdzenie czy to roslina tego uzytkownika (lub to admin patrzy)
+        if (req.user.role !== 'admin' && String(row.owner_id) !== String(req.user.userId)) {
+            return res.status(403).json({ error: "Brak dostępu do tej rośliny." });
+        }
+
+        res.json(row);
+    });
+});
+
+// UPDATE -> zmiana min humidity do wystapienia alarmu
+app.put('/api/plants/:id/settings', authenticate, (req, res) => {
+    const { id } = req.params;
+    const { minHumidity } = req.body;
+
+    if (minHumidity === undefined) return res.status(400).json({ error: "Brak danych" });
+
+    let sql = "UPDATE plants SET min_humidity = ? WHERE id = ?";
+    let params = [minHumidity, id];
+
+    if (req.user.role !== 'admin') {
+        sql += " AND owner_id = ?";
+        params.push(req.user.userId);
+    }
+
+    db.run(sql, params, function(err) {
+        if (err) return res.status(500).json({ error: "Błąd bazy danych" });
+        if (this.changes === 0) return res.status(403).json({ error: "Brak uprawnień lub nie znaleziono rośliny." });
+
+        logSystemEvent(id, `Zmieniono próg alarmu wilgotności na: ${minHumidity}%`);
+        res.json({ success: true, minHumidity });
+    });
+});
+
+// DELETE -> usuniecie wszystkich logow danej rosliny bez usuwania rosliny
+app.delete('/api/plants/:id/logs', authenticate, (req, res) => {
+    const { id } = req.params;
+
+    // czy roslina jest uzytkownika
+    db.get("SELECT owner_id FROM plants WHERE id = ?", [id], (err, row) => {
+        if (!row) return res.status(404).json({ error: "Roślina nie istnieje" });
+
+        if (req.user.role !== 'admin' && String(row.owner_id) !== String(req.user.userId)) {
+            return res.status(403).json({ error: "To nie twoja roślina." });
+        }
+
+        // usuwanie logow
+        db.run("DELETE FROM logs WHERE plant_id = ?", [id], function(err) {
+            if (err) return res.status(500).json({ error: "Błąd usuwania logów" });
+            
+            // dodanie logu o usunieciu
+            logSystemEvent(id, "Historia zdarzeń została ręcznie wyczyszczona.");
+            res.json({ success: true, message: "Historia wyczyszczona." });
+        });
     });
 });
 

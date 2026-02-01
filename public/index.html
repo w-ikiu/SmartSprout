@@ -112,6 +112,28 @@
             </div>
         </div>
     </div>
+
+    <!-- nowe funkcjonalnosci - ustawienie alarmu dla danej wilgotonosci, usuniecie wszystkich logow rosliny -->
+    <div id="settingsModal" class="modal">
+    <div class="modal-content">
+        <span class="close-btn" onclick="closeSettingsModal()">&times;</span>
+        <h2 id="modalPlantName">Ustawienia</h2>
+        
+        <div class="setting-group">
+            <label>Włącz alarm gdy wilgotność spadnie poniżej (%):</label>
+            <input type="number" id="modalMinHumidity" min="0" max="100">
+            <button onclick="savePlantSettings()" class="btn-save">Zapisz zmiany</button>
+        </div>
+
+        <hr style="margin: 20px 0; border: 0; border-top: 1px solid #ccc;">
+
+        <div class="setting-group">
+            <label style="color: #d32f2f;">Wyczyść historię logów:</label>
+            <p style="font-size: 12px; color: #666;">Jeśli historia zajmuje za dużo miejsca, możesz ją wyczyścić.</p>
+            <button onclick="clearPlantLogs()" class="btn-danger">Wyczyść</button>
+        </div>
+    </div>
+</div>
     
     <script src="/socket.io/socket.io.js"></script>
     <script src="app.js"></script>

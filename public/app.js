@@ -188,6 +188,7 @@ async function loadPlants(queryParams = '') {
                 <button onclick="waterPlant(${p.id})" class="btn-water">💦 Podlej</button>
                 <button onclick="editPlant(${p.id}, '${p.name}')" class="btn-edit" title="Zmień nazwę">✎ Edytuj</button>
                 <button onclick="deletePlant(${p.id})" class="btn-delete-icon" title="Usuń">×</button>
+                <button onclick="openSettings(${p.id})" style="background-color: #1976D2; margin-left: 5px;">⚙️ Ustawienia</button>
             </div>
         `;
         list.appendChild(div);
@@ -730,5 +731,77 @@ async function deleteLog(logId) {
         }
     } catch (e) {
         console.error(e);
+    }
+}
+
+// nowe funkcjonalnosci CRUD
+
+let currentSettingsPlantId = null;
+
+// ustawienia danej rosliny (pobranie danych jednej rosliny)
+async function openSettings(id) {
+    currentSettingsPlantId = id;
+    const modal = document.getElementById('settingsModal');
+    
+    try {
+        const response = await fetch(`/api/plants/${id}`);
+        if (!response.ok) throw new Error("Błąd pobierania.");
+        
+        const plant = await response.json();
+        
+        // dane z bazy
+        document.getElementById('modalPlantName').innerText = `Ustawienia: ${plant.name}`;
+        document.getElementById('modalMinHumidity').value = plant.min_humidity || 20;
+        
+        modal.style.display = 'flex';
+    } catch (err) {
+        alert("Nie udało się pobrać szczegółów rośliny.");
+        console.error(err);
+    }
+}
+
+function closeSettingsModal() {
+    document.getElementById('settingsModal').style.display = 'none';
+}
+
+// zapis nowych ustawien rosliny
+async function savePlantSettings() {
+    const newVal = document.getElementById('modalMinHumidity').value;
+    
+    const response = await fetch(`/api/plants/${currentSettingsPlantId}/settings`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ minHumidity: newVal })
+    });
+
+    if (response.ok) {
+        alert("Zapisano pomyślnie!");
+        closeSettingsModal();
+    } else {
+        alert("Błąd zapisu.");
+    }
+}
+
+// usuwanie wszystkich logow danej rosliny
+async function clearPlantLogs() {
+    if (!confirm("Czy na pewno chcesz usunąć historię logów tej rośliny?")) return;
+
+    const response = await fetch(`/api/plants/${currentSettingsPlantId}/logs`, {
+        method: 'DELETE'
+    });
+
+    if (response.ok) {
+        alert("Historia wyczyszczona.");
+        closeSettingsModal();
+    } else {
+        alert("Błąd usuwania logów.");
+    }
+}
+
+// zamkniecie modala jesli uzytkownik kliknie poza nim
+window.onclick = function(event) {
+    const modal = document.getElementById('settingsModal');
+    if (event.target == modal) {
+        modal.style.display = "none";
     }
 }
