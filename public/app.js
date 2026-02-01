@@ -9,6 +9,13 @@ socket.on('connect', () => {
 let ROLE = localStorage.getItem('role');
 let USERNAME = localStorage.getItem('username');
 
+// kontener na powiadomienia
+if (!document.getElementById('notification-container')) {
+    const container = document.createElement('div');
+    container.id = 'notification-container';
+    document.body.appendChild(container);
+}
+
 // zamiast if(TOKEN) sprawdzamy sesję na serwerze
 checkSession();
 
@@ -630,13 +637,13 @@ function initChat() {
         socket.on('admin_new_message', (msg) => {
             const currentTarget = document.getElementById('targetUserId').value;
             
-            console.log("Otrzymano wiadomość od:", msg.fromId, "Aktualnie wybrany:", currentTarget);
-
+            // jesli admin ma otwarty chat z ta osoba
             if (currentTarget && String(currentTarget) === String(msg.fromId)) {
                 appendMessage(msg.content, 'other');
             } else {
-                // jesli admin nie ma otwartego czatu z dana osoba
-                alert(`Nowa wiadomość od ${msg.fromName}`);
+                // powiadomienie
+                showNotification(`Nowa wiadomość od ${msg.fromName}`, 'msg');
+                
                 socket.emit('get_active_chats');
             }
         });
@@ -660,8 +667,15 @@ function initChat() {
         });
 
         socket.on('new_message', (msg) => {
-            // type to other bo to wiadomosc od admina
+            // 1. Zawsze wstawiamy dymek do czatu (nawet jak ukryty)
             appendMessage(msg.content, 'other'); 
+            
+            // 2. Sprawdzamy czy okno jest zamknięte
+            const chatWindow = document.getElementById('chatWindow');
+            if (chatWindow.style.display === 'none') {
+                // Jeśli tak -> wyświetlamy powiadomienie
+                showNotification(`Nowa wiadomość od Admina: ${msg.content.substring(0,20)}...`, 'msg');
+            }
         });
     }
 }
@@ -968,6 +982,10 @@ async function loadCommunityPlants() {
         plants.forEach(p => {
             const div = document.createElement('div');
             div.className = 'plant-item';
+
+            const isLiked = p.is_liked_by_me > 0;
+            const likeBtnClass = isLiked ? 'btn-like-filled' : 'btn-like-outline';
+            const likeIcon = isLiked ? '❤️' : '🤍';
             
             // HTML kafelka spolecznosci
             div.innerHTML = `
@@ -990,12 +1008,13 @@ async function loadCommunityPlants() {
                 </div>
 
                 <div class="plant-actions" style="margin-top: 15px;">
-                    <button onclick="openComments(${p.id}, '${p.name} (${p.owner_name})')" class="plant-btn" style="background-color: #7B1FA2;">
+                    <button onclick="openComments(${p.id}, '${p.name} (${p.owner_name})')" class="plant-btn" style="background-color: #7337b8;">
                         <span>💬</span> Komentuj
                     </button>
                     
-                    <button onclick="likePlant(${p.id})" class="plant-btn" style="background-color: #E91E63;">
-                        <span>❤️</span> <span id="likes-count-${p.id}">${p.likes_count || 0}</span>
+                    <button onclick="likePlant(${p.id})" id="like-btn-${p.id}" class="plant-btn ${likeBtnClass}">
+                        <span id="like-icon-${p.id}">${likeIcon}</span> 
+                        <span id="likes-count-${p.id}">${p.likes_count || 0}</span>
                     </button>
                 </div>
             `;
@@ -1012,10 +1031,19 @@ function likePlant(plantId) {
     // sygnal do serwera ze wysylamy polubienie
     socket.emit('like_plant', plantId);
     
-    // animacja
-    const btn = document.getElementById(`likes-count-${plantId}`).parentElement;
-    btn.style.transform = "scale(0.95)";
-    setTimeout(() => btn.style.transform = "scale(1)", 100);
+    const btn = document.getElementById(`like-btn-${plantId}`);
+    const icon = document.getElementById(`like-icon-${plantId}`);
+    
+    // zmiana koloru serca
+    if (btn.classList.contains('btn-like-filled')) {
+        btn.classList.remove('btn-like-filled');
+        btn.classList.add('btn-like-outline');
+        icon.innerText = '🤍';
+    } else {
+        btn.classList.remove('btn-like-outline');
+        btn.classList.add('btn-like-filled');
+        icon.innerText = '❤️';
+    }
 }
 
 // odbieranie aktualizacji licznika
@@ -1033,4 +1061,34 @@ socket.on('update_likes', (data) => {
         counterElement.style.transform = "scale(1.5)";
         setTimeout(() => counterElement.style.transform = "scale(1)", 200);
     }
+});
+
+// wyswietlanie powiadomien
+function showNotification(text, type = 'info') {
+    const container = document.getElementById('notification-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    // zalezy jakie powiadomienie - inna ikona
+    let icon = '🔔';
+    if (type === 'like') icon = '❤️';
+    if (type === 'msg') icon = '💬';
+
+    toast.innerHTML = `<span style="font-size:18px;">${icon}</span> <span>${text}</span>`;
+    
+    container.appendChild(toast);
+
+    // usuwanie po 4 sekundach
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(100%)';
+        toast.style.transition = 'all 0.5s';
+        setTimeout(() => toast.remove(), 500);
+    }, 4000);
+}
+
+// nasluchiwanie powiadomien z serwera
+socket.on('notification', (data) => {
+    // data = { type: 'like', text: 'Ktoś polubił...' }
+    showNotification(data.text, data.type);
 });

@@ -763,16 +763,14 @@ td:last-child { border-radius: 0 15px 15px 0; }
     background: #fff;
 }
 
-/* Separator (kreska) */
 .separator {
     height: 1px;
     background-color: #eee;
-    margin: 20px -30px; /* -30px żeby kreska dotykała krawędzi modala (niweluje padding rodzica) */
+    margin: 20px -30px;
 }
 
-/* Strefa Danger (czerwona) */
 .danger-zone {
-    background-color: #fff5f5; /* Lekko czerwone tło */
+    background-color: #fff5f5;
     padding: 15px;
     border-radius: 10px;
     border: 1px solid #ffcdd2;
@@ -782,7 +780,6 @@ td:last-child { border-radius: 0 15px 15px 0; }
     color: #d32f2f;
 }
 
-/* Przyciski w modalu */
 .btn-save {
     width: 100%;
     padding: 12px;
@@ -816,4 +813,54 @@ td:last-child { border-radius: 0 15px 15px 0; }
     background-color: #d32f2f;
     color: white;
     border-color: #d32f2f;
+}
+
+/* powiadomienia */
+#notification-container {
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 10001;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.toast {
+    background: white;
+    border-left: 5px solid #2E7D32;
+    padding: 15px 20px;
+    border-radius: 4px;
+    box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+    min-width: 250px;
+    animation: slideIn 0.3s ease-out;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-size: 14px;
+}
+
+.toast.like { border-color: #E91E63; }
+.toast.msg { border-color: #2196F3; }
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+.btn-like-outline {
+    background-color: transparent !important;
+    border: 2px solid #E91E63 !important;
+    color: #E91E63 !important;
+    transition: all 0.2s;
+}
+
+.btn-like-outline:hover {
+    background-color: rgba(233, 30, 99, 0.1) !important;
+}
+
+.btn-like-filled {
+    background-color: #E91E63 !important;
+    color: white !important;
+    border: 2px solid #E91E63 !important;
 }

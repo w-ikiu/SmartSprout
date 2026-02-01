@@ -580,22 +580,30 @@ io.on('connection', (socket) => {
 
     // polubienie rosliny
     socket.on('like_plant', (plantId) => {
-        
         const userId = socket.userId;
-        
+        const username = sessions[socket.handshake.headers.cookie?.split('token=')[1]?.split(';')[0]]?.username || "Ktoś"; 
+
         if (!userId) return;
 
-        // czy juz polubione
         db.get("SELECT * FROM likes WHERE user_id = ? AND plant_id = ?", [userId, plantId], (err, row) => {
             if (!row) {
-                // jesli nie
+                // polubienie
                 db.run("INSERT INTO likes (user_id, plant_id) VALUES (?, ?)", [userId, plantId], () => {
-                    
-                    // liczenie likeow
+                    // liczenie
                     db.get("SELECT COUNT(*) as count FROM likes WHERE plant_id = ?", [plantId], (err, res) => {
-                        
-                        // emit do wszystkich ze liczba polubien sie zwiekszyla
-                        io.emit('update_likes', { plantId: plantId, count: res.count });
+                        io.emit('update_likes', { plantId: plantId, count: res.count }); // update licznika dla wszystkich
+
+                        // powiadomienie dla wlasciciela
+                        // czyja to roslina
+                        db.get("SELECT owner_id, name FROM plants WHERE id = ?", [plantId], (err, plant) => {
+                            // nie wysylamy powiadomienia samemu sobie
+                            if (plant && String(plant.owner_id) !== String(userId)) {
+                                io.to(`user_${plant.owner_id}`).emit('notification', {
+                                    type: 'like',
+                                    text: `Użytkownik ${username} polubił Twoją roślinę: ${plant.name} ❤️`
+                                });
+                            }
+                        });
                     });
                 });
             } else {
@@ -744,14 +752,18 @@ app.put('/api/comments/:id', authenticate, (req, res) => {
 
 // READ -> pobierz rosliny wszystkich
 app.get('/api/community/plants', authenticate, (req, res) => {
+    const userId = req.user.userId;
+    
     const sql = `
         SELECT p.*, u.username as owner_name, 
-        (SELECT COUNT(*) FROM likes WHERE plant_id = p.id) as likes_count
+        (SELECT COUNT(*) FROM likes WHERE plant_id = p.id) as likes_count,
+        (SELECT COUNT(*) FROM likes WHERE plant_id = p.id AND user_id = ?) as is_liked_by_me
         FROM plants p 
         JOIN users u ON p.owner_id = u.id 
         ORDER BY p.id DESC
     `;
-    db.all(sql, [], (err, rows) => {
+    
+    db.all(sql, [userId], (err, rows) => {
         if (err) return res.status(500).json({ error: "Błąd bazy" });
         res.json(rows);
     });
