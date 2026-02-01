@@ -163,6 +163,8 @@ async function loadPlants(queryParams = '') {
         const div = document.createElement('div');
         div.className = 'plant-item';
         div.innerHTML = `
+            <button onclick="deletePlant(${p.id})" class="delete-btn" title="Usuń">&times</button>
+            
             <div>
                 <div class="plant-header">
                     <span class="plant-name">🌱 ${p.name}</span>
@@ -185,10 +187,17 @@ async function loadPlants(queryParams = '') {
             </div>
 
             <div class="plant-actions">
-                <button onclick="waterPlant(${p.id})" class="btn-water">💦 Podlej</button>
-                <button onclick="editPlant(${p.id}, '${p.name}')" class="btn-edit" title="Zmień nazwę">✎ Edytuj</button>
-                <button onclick="deletePlant(${p.id})" class="btn-delete-icon" title="Usuń">×</button>
-                <button onclick="openSettings(${p.id})" style="background-color: #1976D2; margin-left: 5px;">⚙️ Ustawienia</button>
+                <button onclick="waterPlant(${p.id})" class="plant-btn btn-water">
+                    <span>💦</span> Podlej
+                </button>
+                
+                <button onclick="editPlant(${p.id}, '${p.name}')" class="plant-btn btn-edit">
+                    <span>✎</span> Edytuj
+                </button>
+                
+                <button onclick="openSettings(${p.id})" class="plant-btn btn-settings">
+                    <span>⚙️</span> Opcje
+                </button>
             </div>
         `;
         list.appendChild(div);
