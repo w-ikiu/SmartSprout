@@ -583,7 +583,7 @@ io.on('connection', (socket) => {
     // polubienie rosliny
     socket.on('like_plant', (plantId) => {
         const userId = socket.userId;
-        const username = sessions[socket.handshake.headers.cookie?.split('token=')[1]?.split(';')[0]]?.username || "Ktoś"; 
+        const username = socket.username || "Gość";
 
         if (!userId) return;
 
@@ -702,12 +702,14 @@ app.get('/api/plants/:id/comments', authenticate, (req, res) => {
 });
 
 // CREATE -> dodanie komentarza
+// CREATE -> dodanie komentarza
 app.post('/api/plants/:id/comments', authenticate, (req, res) => {
     const { id } = req.params;  // id rosliny
     const { content } = req.body;
     
     if (!content) return res.status(400).json({ error: "Komentarz nie może być pusty." });
 
+    // zapis komentarza do bazy
     db.run("INSERT INTO comments (plant_id, user_id, username, content) VALUES (?, ?, ?, ?)",
         [id, req.user.userId, req.user.username, content],
         function(err) {
@@ -722,8 +724,23 @@ app.post('/api/plants/:id/comments', authenticate, (req, res) => {
                 timestamp: new Date()
             };
 
-            // wyslanie przez websocket ze jest nowy komentarz
+            // wyslanie komentarza przez websocket
             io.emit('plant_new_comment', newComment);
+
+            // powiadomienie o nowym komentarzu dla wlasciciela
+            db.get("SELECT owner_id, name FROM plants WHERE id = ?", [id], (err, plant) => {
+                if (err) console.error("Błąd bazy przy powiadomieniu:", err);
+
+                // nie powiadamy wlasciciela o jego wlasnym komentarzu
+                if (plant && String(plant.owner_id) !== String(req.user.userId)) {
+                    
+                    // wyslanie powiadomienia
+                    io.to(`user_${plant.owner_id}`).emit('notification', {
+                        type: 'msg',
+                        text: `Użytkownik ${req.user.username} skomentował Twoją roślinę "${plant.name}"`
+                    });
+                }
+            });
 
             res.json(newComment);
         }
