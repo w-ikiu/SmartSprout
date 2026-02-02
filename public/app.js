@@ -529,15 +529,17 @@ document.getElementById('chatInput').addEventListener('keypress', function (e) {
 // inicjalizacja chatu
 function initChat() {
     const userId = localStorage.getItem('userId');
+    const currentUsername = localStorage.getItem('username');
+
     if (!userId) {
         console.error("FRONTEND BŁĄD: Brak ID użytkownika!");
         return;
     }
 
     // log do testow
-    console.log("FRONTEND: Inicjalizuję czat dla ID:", userId);
+    console.log("FRONTEND: Inicjalizuję czat dla:", currentUsername, "ID:", userId);
 
-    socket.emit('identify', userId);
+    socket.emit('identify', { userId: userId, username: currentUsername });
 
     // czyszczenie starych listenerow
     socket.off('admin_new_message');

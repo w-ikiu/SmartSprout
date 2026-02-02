@@ -522,6 +522,8 @@ io.on('connection', (socket) => {
 
     socket.on('identify', (userId) => {
         socket.userId = userId;
+        socket.username = data.username;
+
         // uzytkownik dolacza do swojego dedykowanego pokoju
         socket.join(`user_${userId}`);
 
@@ -530,7 +532,7 @@ io.on('connection', (socket) => {
             socket.join('admins');
             console.log("Administrator dołączył do pokoju adminów");
         }
-        console.log(`Zidentyfikowano użytkownika ID: ${userId}`);
+        console.log(`Zidentyfikowano użytkownika ${data.username} ID: ${userId}`);
     });
 
     socket.on('get_active_chats', () => {
