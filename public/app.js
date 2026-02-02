@@ -552,26 +552,55 @@ function initChat() {
 
     // live dane od roslin
     socket.on('plant_update', (data) => {
-        console.log("LIVE DATA:", data);
 
-        // zwykly uzytkownik
+        // aktualizacja roslin w spolecznosci
+        const tempSpan = document.getElementById(`comm-temp-${data.plantId}`);
+        const humSpan = document.getElementById(`comm-hum-${data.plantId}`);
+        const barDiv = document.getElementById(`comm-bar-${data.plantId}`);
+
+        if (tempSpan && humSpan) {
+            // aktualizacja liczb
+            tempSpan.innerText = data.temp.toFixed(1);
+            humSpan.innerText = data.humidity;
+
+            // aktualizacja paska wilgotności
+            if (barDiv) {
+                barDiv.style.width = `${data.humidity}%`;
+                
+                // aktualizacja koloru paska
+                barDiv.className = 'humidity-bar-fill';
+                if (data.humidity < 10) barDiv.classList.add('bar-red');
+                else if (data.humidity < 30) barDiv.classList.add('bar-orange');
+                else barDiv.classList.add('bar-green');
+            }
+            
+            tempSpan.style.color = '#2E7D32'; 
+            setTimeout(() => tempSpan.style.color = '', 500);
+        }
+
+        // aktualizacja roslin uzytkownika
+
+        // sprawdzamy czy uzytkownik jest w zakladce moje rosliny
+        const isMyPlantsTabActive = document.getElementById('communityContainer').style.display === 'none';
+
+        // zwykly user
         if (ROLE !== 'admin') {
-            // czy cos jest w wyszukiwarce zeby nie odswiezyc wyszukan
-            const searchValue = document.getElementById('searchPlantInput').value;
-            // odswiezenie listy
-            loadPlants(searchValue ? `?search=${searchValue}` : '');
+            if (isMyPlantsTabActive) {
+                const searchValue = document.getElementById('searchPlantInput').value;
+                loadPlants(searchValue ? `?search=${searchValue}` : '');
+            }
         }
         
-        // admin
+        // jesli admin
         else if (ROLE === 'admin') {
-            // admina odswiezamy jesli aktualnie patrzy na uzytkownika do ktorego nalezy ta roslina
+            // admin odswieza widok jesli patrzy na uzytkownika do ktoego nalezy dana rosilna
             if (currentViewedUserId && String(data.ownerId) === String(currentViewedUserId)) {
-                 const searchValue = document.getElementById('searchPlantInput').value;
+                const searchValue = document.getElementById('searchPlantInput').value;
                 
-                 let query = `?userId=${currentViewedUserId}`;
-                 if (searchValue) query += `&search=${searchValue}`;
-                 
-                 loadPlants(query);
+                let query = `?userId=${currentViewedUserId}`;
+                if (searchValue) query += `&search=${searchValue}`;
+                
+                loadPlants(query);
             }
         }
     });
@@ -999,8 +1028,12 @@ async function loadCommunityPlants() {
                     
                     <div class="plant-stats" style="margin-top: 10px;">
                         <div class="stat-row">
-                            <span>🌡️ ${p.temperature ? p.temperature.toFixed(1) : '--'}°C</span>
-                            <span>💧 ${p.humidity}%</span>
+                            <span>🌡️ <b id="comm-temp-${p.id}">${p.temperature ? p.temperature.toFixed(1) : '--'}</b>°C</span>
+                            <span>💧 <b id="comm-hum-${p.id}">${p.humidity}</b>%</span>
+                        </div>
+
+                        <div class="humidity-bar-container" style="margin-top:10px;">
+                            <div id="comm-bar-${p.id}" class="humidity-bar-fill bar-green" style="width: ${p.humidity}%;"></div>
                         </div>
                     </div>
 

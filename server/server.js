@@ -520,11 +520,17 @@ app.delete('/api/logs/:id', authenticate, (req, res) => {
 io.on('connection', (socket) => {
     console.log('Nowy klient WebSocket:', socket.id);
 
-    socket.on('identify', (userId) => {
-        socket.userId = userId;
-        socket.username = data.username;
+    socket.on('identify', (data) => { 
+        if (!data) return;
 
-        // uzytkownik dolacza do swojego dedykowanego pokoju
+        // wartosci z obiektu data, nazwa i id
+        const userId = data.userId;
+        const username = data.username;
+
+        socket.userId = userId;
+        socket.username = username;
+
+        // yser dolacza do dedykowanego pokoju
         socket.join(`user_${userId}`);
 
         // admin dolacza do pokoju admins
@@ -532,7 +538,8 @@ io.on('connection', (socket) => {
             socket.join('admins');
             console.log("Administrator dołączył do pokoju adminów");
         }
-        console.log(`Zidentyfikowano użytkownika ${data.username} ID: ${userId}`);
+        
+        console.log(`Zidentyfikowano użytkownika ${username} ID: ${userId}`);
     });
 
     socket.on('get_active_chats', () => {
