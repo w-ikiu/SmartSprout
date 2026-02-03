@@ -88,25 +88,17 @@ mqttClient.on('message', (topic, message) => {
                         if (row) {
                             // wysylanie live data przez websocket
                             
-                            // do wlasciciela rosliny
-                            io.to(`user_${row.owner_id}`).emit('plant_update', {
+                            // dane do wyslania dla wszystkich (live update)
+                            const updateData = {
                                 plantId: plantId,
                                 temp: temp,
                                 humidity: hum,
                                 heater: heaterVal,
                                 fan: fanVal,
                                 ownerId: row.owner_id
-                            });
+                            };
 
-                            // do admina (zmiany w podgladzie)
-                            io.to('admins').emit('plant_update', {
-                                plantId: plantId,
-                                temp: temp,
-                                humidity: hum,
-                                heater: heaterVal,
-                                fan: fanVal,
-                                ownerId: row.owner_id
-                            });
+                            io.emit('plant_update', updateData);
                         }
                     });
                 }

@@ -573,9 +573,6 @@ function initChat() {
                 else if (data.humidity < 30) barDiv.classList.add('bar-orange');
                 else barDiv.classList.add('bar-green');
             }
-            
-            tempSpan.style.color = '#2E7D32'; 
-            setTimeout(() => tempSpan.style.color = '', 500);
         }
 
         // aktualizacja roslin uzytkownika
@@ -1035,10 +1032,6 @@ async function loadCommunityPlants() {
                         <div class="humidity-bar-container" style="margin-top:10px;">
                             <div id="comm-bar-${p.id}" class="humidity-bar-fill bar-green" style="width: ${p.humidity}%;"></div>
                         </div>
-                    </div>
-
-                    <div class="humidity-bar-container" style="margin-top:10px;">
-                        <div class="humidity-bar-fill bar-green" style="width: ${p.humidity}%;"></div>
                     </div>
                 </div>
 
