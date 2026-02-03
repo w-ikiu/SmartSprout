@@ -1101,6 +1101,7 @@ function showNotification(text, type = 'info') {
     let icon = '🔔';
     if (type === 'like') icon = '❤️';
     if (type === 'msg') icon = '💬';
+    if (type === 'warning') icon = '⚠️';
 
     toast.innerHTML = `<span style="font-size:18px;">${icon}</span> <span>${text}</span>`;
     

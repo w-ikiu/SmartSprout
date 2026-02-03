@@ -83,12 +83,12 @@ mqttClient.on('message', (topic, message) => {
                 (err) => {
                     if (err) return console.error("Błąd SQL update:", err.message);
 
-                    // pobranie id wlasciciela rosliny zeby wiadomo bylo do kogo wyslac powiadomienie
-                    db.get("SELECT owner_id FROM plants WHERE id = ?", [plantId], (err, row) => {
+                    // pobranie ustawien rosliny do powiadomienia
+                    // pobieramy owner_id, name (nazwa rosliny) oraz min_humidity
+                    db.get("SELECT owner_id, name, min_humidity FROM plants WHERE id = ?", [plantId], (err, row) => {
                         if (row) {
-                            // wysylanie live data przez websocket
                             
-                            // dane do wyslania dla wszystkich (live update)
+                            // wyslanie live data do wszystkich
                             const updateData = {
                                 plantId: plantId,
                                 temp: temp,
@@ -97,8 +97,22 @@ mqttClient.on('message', (topic, message) => {
                                 fan: fanVal,
                                 ownerId: row.owner_id
                             };
-
                             io.emit('plant_update', updateData);
+
+
+                            // alarm o podlaniu
+                            
+                            // czy wilgotnosc jest mniejsza niz podana
+                            if (hum > 0 && hum < row.min_humidity) {
+                                
+                                const alertMsg = `⚠️ Uwaga! Wilgotność rośliny "${row.name}" spadła do ${hum}% (min: ${row.min_humidity}%). Podlej ją!`;
+
+                                // powiadomienie tylko do wlasciciela
+                                io.to(`user_${row.owner_id}`).emit('notification', {
+                                    type: 'warning',
+                                    text: alertMsg
+                                });
+                            }
                         }
                     });
                 }
