@@ -22,6 +22,10 @@ const cookieParser = require('cookie-parser');
 const app = express();
 const PORT = 3000;
 
+// przechowywanie czasu alertu dla kazdej rosliny - zeby ostrzezenia byly co 5 sekund
+const lastAlertTimes = {}; 
+const ALERT_COOLDOWN = 5000;
+
 // wczytanie certyfikatow openssl
 const options = {
     key: fs.readFileSync(path.join(__dirname, '../key.pem')),
@@ -104,14 +108,24 @@ mqttClient.on('message', (topic, message) => {
                             
                             // czy wilgotnosc jest mniejsza niz podana
                             if (hum > 0 && hum < row.min_humidity) {
-                                
-                                const alertMsg = `⚠️ Uwaga! Wilgotność rośliny "${row.name}" spadła do ${hum}% (min: ${row.min_humidity}%). Podlej ją!`;
+                                const now = Date.now(); 
+                                const lastAlert = lastAlertTimes[plantId] || 0; // kiedy byl ostatni alert dla tej rosliny
 
-                                // powiadomienie tylko do wlasciciela
-                                io.to(`user_${row.owner_id}`).emit('notification', {
-                                    type: 'warning',
-                                    text: alertMsg
-                                });
+                                // czy minelo 5 sekund od ostatniego powiadomienia
+                                if (now - lastAlert > ALERT_COOLDOWN) {
+                                    
+                                    const alertMsg = `⚠️ Uwaga! Wilgotność rośliny "${row.name}" spadła do ${hum}% (min: ${row.min_humidity}%). Podlej ją!`;
+
+                                    io.to(`user_${row.owner_id}`).emit('notification', {
+                                        type: 'warning',
+                                        text: alertMsg
+                                    });
+
+                                    // zapis czasu wyslania powiadomienia
+                                    lastAlertTimes[plantId] = now;
+                                    
+                                    console.log(`[ALERT] Wysłano powiadomienie dla rośliny ${plantId}`);
+                                }
                             }
                         }
                     });
