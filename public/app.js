@@ -965,6 +965,17 @@ socket.on('plant_new_comment', (data) => {
     }
 });
 
+// live update przy zmianie komentarza
+socket.on('plant_comment_updated', (data) => {
+    // czy komentarze otwarte
+    const modal = document.getElementById('commentsModal');
+    
+    if (modal.style.display === 'flex' && String(currentCommentPlantId) === String(data.plantId)) {
+        console.log("Komentarz edytowany, odświeżam listę...");
+        loadComments(currentCommentPlantId); // zaladowanie ponownie
+    }
+});
+
 // spolecznosc
 
 // przelaczanie zakladek

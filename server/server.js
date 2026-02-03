@@ -794,8 +794,8 @@ app.put('/api/comments/:id', authenticate, (req, res) => {
 
     if (!content) return res.status(400).json({ error: "Treść wymagana" });
 
-    // czy komentarz tego uzytkownika czy admina
-    db.get("SELECT user_id FROM comments WHERE id = ?", [id], (err, row) => {
+    // dane komentarza
+    db.get("SELECT user_id, plant_id FROM comments WHERE id = ?", [id], (err, row) => {
         if (!row) return res.status(404).json({ error: "Nie znaleziono komentarza" });
         
         if (req.user.role !== 'admin' && String(row.user_id) !== String(req.user.userId)) {
@@ -804,6 +804,14 @@ app.put('/api/comments/:id', authenticate, (req, res) => {
 
         db.run("UPDATE comments SET content = ? WHERE id = ?", [content, id], function(err) {
             if (err) return res.status(500).json({ error: "Błąd edycji" });
+            
+            // wyslanie sygnalu ws ze edytowano komentarz
+            io.emit('plant_comment_updated', {
+                commentId: id,
+                plantId: row.plant_id,
+                content: content
+            });
+
             res.json({ success: true, content });
         });
     });
