@@ -48,7 +48,7 @@
                 </div>
             </div>
 
-            <h2 style="color: #2E7D32;">Odkrywaj rośliny innych</h2>
+            <h2 style="color: #2E7D32; text-align: center;">Odkrywaj rośliny innych</h2>
             <div id="communityList" style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 20px;"></div>
         </div>
 
@@ -141,7 +141,7 @@
             <div class="setting-group">
                 <label class="setting-label">Alarm wilgotności (%):</label>
                 <p class="setting-desc">Powiadom, gdy spadnie poniżej:</p>
-                <input type="number" id="modalMinHumidity" class="modal-input" min="0" max="100" placeholder="np. 20">
+                <input type="number" id="modalMinHumidity" class="modal-input" min="-1" max="100" placeholder="np. 20 (lub -1 aby wyłączyć czujnik)">
                 <button onclick="savePlantSettings()" class="btn-save">Zapisz zmiany</button>
             </div>
 

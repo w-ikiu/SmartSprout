@@ -107,14 +107,14 @@ mqttClient.on('message', (topic, message) => {
                             // alarm o podlaniu
                             
                             // czy wilgotnosc jest mniejsza niz podana
-                            if (hum > 0 && hum < row.min_humidity) {
+                            if (hum > 0 && row.min_humidity !== -1 && hum < row.min_humidity) {
                                 const now = Date.now(); 
                                 const lastAlert = lastAlertTimes[plantId] || 0; // kiedy byl ostatni alert dla tej rosliny
 
                                 // czy minelo 5 sekund od ostatniego powiadomienia
                                 if (now - lastAlert > ALERT_COOLDOWN) {
                                     
-                                    const alertMsg = `⚠️ Uwaga! Wilgotność rośliny "${row.name}" spadła do ${hum}% (min: ${row.min_humidity}%). Podlej ją!`;
+                                    const alertMsg = `Uwaga! Wilgotność rośliny "${row.name}" spadła do ${hum}% (min: ${row.min_humidity}%). Podlej ją!`;
 
                                     io.to(`user_${row.owner_id}`).emit('notification', {
                                         type: 'warning',
@@ -550,7 +550,7 @@ io.on('connection', (socket) => {
         socket.userId = userId;
         socket.username = username;
 
-        // yser dolacza do dedykowanego pokoju
+        // user dolacza do dedykowanego pokoju
         socket.join(`user_${userId}`);
 
         // admin dolacza do pokoju admins
@@ -644,6 +644,7 @@ io.on('connection', (socket) => {
                     db.get("SELECT COUNT(*) as count FROM likes WHERE plant_id = ?", [plantId], (err, res) => {
                         io.emit('update_likes', { plantId: plantId, count: res.count });
                     });
+                    broadcastLeaderboard();
                 });
             }
         });
@@ -680,8 +681,14 @@ app.put('/api/plants/:id/settings', authenticate, (req, res) => {
 
     if (minHumidity === undefined) return res.status(400).json({ error: "Brak danych" });
 
+    // walidacja minimalnej wilgotnosci
+    const val = parseInt(minHumidity);
+    if (val !== -1 && (val < 0 || val > 100)) {
+        return res.status(400).json({ error: "Nieprawidłowa wartość. Użyj 0-100 lub -1." });
+    }
+
     let sql = "UPDATE plants SET min_humidity = ? WHERE id = ?";
-    let params = [minHumidity, id];
+    let params = [val, id]; //
 
     if (req.user.role !== 'admin') {
         sql += " AND owner_id = ?";
@@ -692,8 +699,12 @@ app.put('/api/plants/:id/settings', authenticate, (req, res) => {
         if (err) return res.status(500).json({ error: "Błąd bazy danych" });
         if (this.changes === 0) return res.status(403).json({ error: "Brak uprawnień lub nie znaleziono rośliny." });
 
-        logSystemEvent(id, `Zmieniono próg alarmu wilgotności na: ${minHumidity}%`);
-        res.json({ success: true, minHumidity });
+        const msg = val === -1 
+            ? "Wyłączono alarm wilgotności." 
+            : `Zmieniono próg alarmu wilgotności na: ${val}%`;
+
+        logSystemEvent(id, msg);
+        res.json({ success: true, minHumidity: val });
     });
 });
 

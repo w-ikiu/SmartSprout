@@ -817,19 +817,28 @@ function closeSettingsModal() {
 
 // zapis nowych ustawien rosliny
 async function savePlantSettings() {
-    const newVal = document.getElementById('modalMinHumidity').value;
+    const input = document.getElementById('modalMinHumidity');
+    const newVal = parseInt(input.value);
     
-    const response = await fetch(`/api/plants/${currentSettingsPlantId}/settings`, {
+    // walidacja -> mozna wpisac wartosci od -1 do 100 (-1 - roslina nie potrzebuje podlewania i wartosci od 0-100)
+    if (newVal !== -1 && (newVal < 0 || newVal > 100 || isNaN(newVal))) {
+        alert("Błędna wartość! \nWpisz 0-100 (%) lub -1 aby wyłączyć alarm.");
+        return; // Przerywamy funkcję, nic nie wysyłamy
+    }
+
+    // wysylanie zapytania o zmiane
+    const res = await fetch(`/api/plants/${currentSettingsPlantId}/settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ minHumidity: newVal })
     });
 
-    if (response.ok) {
+    if (res.ok) {
         alert("Zapisano pomyślnie!");
         closeSettingsModal();
     } else {
-        alert("Błąd zapisu.");
+        const data = await res.json();
+        alert(data.error || "Błąd zapisu.");
     }
 }
 
@@ -998,7 +1007,7 @@ function switchTab(tab) {
 // pobranie roslin innych (READ)
 async function loadCommunityPlants() {
     const list = document.getElementById('communityList');
-    list.innerHTML = '<p style="text-align:center; width:200%;">Ładowanie świata...</p>';
+    list.innerHTML = '<p style="text-align:center; width:200%;">Ładowanie ...</p>';
 
     try {
         const res = await fetch('/api/community/plants');
