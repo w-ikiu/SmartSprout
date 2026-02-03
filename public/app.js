@@ -1188,6 +1188,18 @@ socket.on('update_leaderboard', (topPlants) => {
     });
 });
 
+// wylogowanie wymuszone usunieciem konta
+socket.on('force_logout', (data) => {
+    alert(data.reason || "Zostałeś wylogowany.");
+
+    localStorage.removeItem('token');
+    localStorage.removeItem('userId');
+    localStorage.removeItem('username');
+    localStorage.removeItem('role');
+    
+    location.reload();
+});
+
 // nasluchiwanie powiadomien z serwera
 socket.on('notification', (data) => {
     // data = { type: 'like', text: 'Ktoś polubił...' }

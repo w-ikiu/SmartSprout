@@ -364,18 +364,39 @@ app.put('/api/users/:id/username', authenticate, (req, res) => {
 
 // DELETE -> usuwanie uzytkownika
 app.delete('/api/users/:id', authenticate, (req, res) => {
-    if (req.user.role !== 'admin') return res.status(403).json({error: "Brak uprawnień."});
-    const idToDelete = req.params.id;
-    if (String(idToDelete) === '1') return res.status(400).json({error: "Nie można usunąć admina."});
+    // uprawnienia
+    if (req.user.role !== 'admin') {
+        return res.status(403).json({ error: "Brak uprawnień admina." });
+    }
 
+    const userIdToDelete = req.params.id;
+
+    // admina nie mozna usunac
+    if (String(userIdToDelete) === String(req.user.userId)) {
+        return res.status(400).json({ error: "Nie możesz usunąć swojego konta admina." });
+    }
+
+    // "sprzatanie" innych danych uzytkownika
     db.serialize(() => {
-        // najpierw usuwamy rosliny i logi danego uzytkownika
-        db.run("DELETE FROM plants WHERE owner_id = ?", idToDelete);
-        db.run("DELETE FROM logs WHERE plant_id IN (SELECT id FROM plants WHERE owner_id = ?)", idToDelete);
-        
-        db.run("DELETE FROM users WHERE id = ?", idToDelete, function(err) {
-            if (err) return res.status(500).json({error: err.message});
-            res.json({ success: true, message: "Użytkownik usunięty." });
+        db.run("DELETE FROM likes WHERE user_id = ?", [userIdToDelete]);
+        db.run("DELETE FROM comments WHERE user_id = ?", [userIdToDelete]);
+        db.run("DELETE FROM messages WHERE sender_id = ? OR receiver_id = ?", [userIdToDelete, userIdToDelete]);
+        db.run("DELETE FROM plants WHERE owner_id = ?", [userIdToDelete]);
+        db.run("DELETE FROM users WHERE id = ?", [userIdToDelete], function(err) {
+            if (err) {
+                console.error("Błąd usuwania użytkownika:", err);
+                return res.status(500).json({ error: "Błąd bazy danych podczas usuwania." });
+            }
+
+            // wylogowanie force uzytkownika
+            console.log(`[ADMIN] Usuwam użytkownika ID: ${userIdToDelete}`);
+            
+            io.to(`user_${userIdToDelete}`).emit('force_logout', { 
+                reason: "Twoje konto zostało usunięte przez administratora." 
+            });
+            io.emit('active_chats_list_update'); 
+
+            res.json({ success: true, message: "Użytkownik i jego dane usunięte." });
         });
     });
 });
