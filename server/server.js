@@ -560,6 +560,8 @@ io.on('connection', (socket) => {
         }
         
         console.log(`Zidentyfikowano użytkownika ${username} ID: ${userId}`);
+
+        broadcastLeaderboard();
     });
 
     socket.on('get_active_chats', () => {
@@ -621,6 +623,7 @@ io.on('connection', (socket) => {
                     // liczenie
                     db.get("SELECT COUNT(*) as count FROM likes WHERE plant_id = ?", [plantId], (err, res) => {
                         io.emit('update_likes', { plantId: plantId, count: res.count }); // update licznika dla wszystkich
+                        broadcastLeaderboard(); // aktualizacja leaderboardu
 
                         // powiadomienie dla wlasciciela
                         // czyja to roslina
@@ -729,7 +732,6 @@ app.get('/api/plants/:id/comments', authenticate, (req, res) => {
 });
 
 // CREATE -> dodanie komentarza
-// CREATE -> dodanie komentarza
 app.post('/api/plants/:id/comments', authenticate, (req, res) => {
     const { id } = req.params;  // id rosliny
     const { content } = req.body;
@@ -814,6 +816,25 @@ app.get('/api/community/plants', authenticate, (req, res) => {
         res.json(rows);
     });
 });
+
+// wysylanie rankingu top 3 roslin
+function broadcastLeaderboard() {
+    const sql = `
+        SELECT p.id, p.name, u.username as owner_name, COUNT(l.user_id) as likes_count
+        FROM plants p
+        LEFT JOIN likes l ON p.id = l.plant_id
+        JOIN users u ON p.owner_id = u.id
+        GROUP BY p.id
+        ORDER BY likes_count DESC
+        LIMIT 3
+    `;
+
+    db.all(sql, [], (err, rows) => {
+        if (err) return console.error("Błąd rankingu:", err);
+        // wysylane do wszystkich
+        io.emit('update_leaderboard', rows);
+    });
+}
 
 // start serwera
 server.listen(PORT, () => {
