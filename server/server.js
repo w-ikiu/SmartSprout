@@ -394,6 +394,14 @@ app.delete('/api/users/:id', authenticate, (req, res) => {
             io.to(`user_${userIdToDelete}`).emit('force_logout', { 
                 reason: "Twoje konto zostało usunięte przez administratora." 
             });
+
+            Object.keys(sessions).forEach(token => {
+                if (String(sessions[token].userId) === String(userIdToDelete)) {
+                    delete sessions[token]; // USUWAMY JĄ!
+                    console.log(`[SESSION] Usunięto sesję użytkownika ID: ${userIdToDelete}`);
+                }
+            });
+
             io.emit('active_chats_list_update'); 
 
             res.json({ success: true, message: "Użytkownik i jego dane usunięte." });

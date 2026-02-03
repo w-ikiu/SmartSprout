@@ -713,6 +713,24 @@ function initChat() {
             }
         });
     }
+
+    // wylogowanie wymuszone usunieciem konta
+    socket.on('force_logout', (data) => {
+        // alert
+        alert(data.reason || "Zostałeś wylogowany.");
+
+        localStorage.removeItem('username');
+        localStorage.removeItem('role');
+        localStorage.removeItem('userId');
+
+        const appView = document.getElementById('appView');
+        const loginView = document.getElementById('loginView');
+        
+        if(appView) appView.style.display = 'none';
+        if(loginView) loginView.style.display = 'block';
+
+        location.reload();
+    });
 }
 
 // wyswietlanie logow
@@ -1186,18 +1204,6 @@ socket.on('update_leaderboard', (topPlants) => {
         `;
         container.appendChild(row);
     });
-});
-
-// wylogowanie wymuszone usunieciem konta
-socket.on('force_logout', (data) => {
-    alert(data.reason || "Zostałeś wylogowany.");
-
-    localStorage.removeItem('token');
-    localStorage.removeItem('userId');
-    localStorage.removeItem('username');
-    localStorage.removeItem('role');
-    
-    location.reload();
 });
 
 // nasluchiwanie powiadomien z serwera
