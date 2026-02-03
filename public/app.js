@@ -664,14 +664,21 @@ function initChat() {
 
         socket.on('admin_new_message', (msg) => {
             const currentTarget = document.getElementById('targetUserId').value;
+            const chatWindow = document.getElementById('chatWindow'); // okno chatu
+
+            // czy okno widoczne
+            const isChatVisible = chatWindow.style.display !== 'none';
             
-            // jesli admin ma otwarty chat z ta osoba
-            if (currentTarget && String(currentTarget) === String(msg.fromId)) {
+            // czy wybrany dany user
+            const isChattingWithUser = currentTarget && String(currentTarget) === String(msg.fromId);
+
+            // jesli okno otwarte i rozmowa z uzytkownikiem nie wysylamy powiadomienia
+            if (isChatVisible && isChattingWithUser) {
                 appendMessage(msg.content, 'other');
-            } else {
-                // powiadomienie
+            } 
+            // w przeciwnym razie wysylamy powiadomienie
+            else {
                 showNotification(`Nowa wiadomość od ${msg.fromName}`, 'msg');
-                
                 socket.emit('get_active_chats');
             }
         });
@@ -702,7 +709,7 @@ function initChat() {
             const chatWindow = document.getElementById('chatWindow');
             if (chatWindow.style.display === 'none') {
                 // jak tak pokazujemy powiadomienie
-                showNotification(`Nowa wiadomość od Admina: ${msg.content.substring(0,20)}...`, 'msg');
+                showNotification(`Nowa wiadomość od Admina: ${msg.content.substring(0,20)}`, 'msg');
             }
         });
     }
