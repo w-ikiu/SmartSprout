@@ -22,6 +22,10 @@ const cookieParser = require('cookie-parser');
 const app = express();
 const PORT = 3000;
 
+// przechowywanie czasu alertu dla kazdej rosliny - zeby ostrzezenia byly co 5 sekund
+const lastAlertTimes = {}; 
+const ALERT_COOLDOWN = 5000;
+
 // wczytanie certyfikatow openssl
 const options = {
     key: fs.readFileSync(path.join(__dirname, '../key.pem')),
@@ -83,30 +87,46 @@ mqttClient.on('message', (topic, message) => {
                 (err) => {
                     if (err) return console.error("Błąd SQL update:", err.message);
 
-                    // pobranie id wlasciciela rosliny zeby wiadomo bylo do kogo wyslac powiadomienie
-                    db.get("SELECT owner_id FROM plants WHERE id = ?", [plantId], (err, row) => {
+                    // pobranie ustawien rosliny do powiadomienia
+                    // pobieramy owner_id, name (nazwa rosliny) oraz min_humidity
+                    db.get("SELECT owner_id, name, min_humidity FROM plants WHERE id = ?", [plantId], (err, row) => {
                         if (row) {
-                            // wysylanie live data przez websocket
                             
-                            // do wlasciciela rosliny
-                            io.to(`user_${row.owner_id}`).emit('plant_update', {
+                            // wyslanie live data do wszystkich
+                            const updateData = {
                                 plantId: plantId,
                                 temp: temp,
                                 humidity: hum,
                                 heater: heaterVal,
                                 fan: fanVal,
                                 ownerId: row.owner_id
-                            });
+                            };
+                            io.emit('plant_update', updateData);
 
-                            // do admina (zmiany w podgladzie)
-                            io.to('admins').emit('plant_update', {
-                                plantId: plantId,
-                                temp: temp,
-                                humidity: hum,
-                                heater: heaterVal,
-                                fan: fanVal,
-                                ownerId: row.owner_id
-                            });
+
+                            // alarm o podlaniu
+                            
+                            // czy wilgotnosc jest mniejsza niz podana
+                            if (hum > 0 && row.min_humidity !== -1 && hum < row.min_humidity) {
+                                const now = Date.now(); 
+                                const lastAlert = lastAlertTimes[plantId] || 0; // kiedy byl ostatni alert dla tej rosliny
+
+                                // czy minelo 5 sekund od ostatniego powiadomienia
+                                if (now - lastAlert > ALERT_COOLDOWN) {
+                                    
+                                    const alertMsg = `Uwaga! Wilgotność rośliny "${row.name}" spadła do ${hum}% (min: ${row.min_humidity}%). Podlej ją!`;
+
+                                    io.to(`user_${row.owner_id}`).emit('notification', {
+                                        type: 'warning',
+                                        text: alertMsg
+                                    });
+
+                                    // zapis czasu wyslania powiadomienia
+                                    lastAlertTimes[plantId] = now;
+                                    
+                                    console.log(`[ALERT] Wysłano powiadomienie dla rośliny ${plantId}`);
+                                }
+                            }
                         }
                     });
                 }
@@ -173,6 +193,9 @@ db.serialize(() => {
 
     // komentarze
     db.run(`CREATE TABLE IF NOT EXISTS comments ( id INTEGER PRIMARY KEY, plant_id INTEGER, user_id INTEGER, username TEXT, content TEXT, timestamp DATETIME DEFAULT CURRENT_TIMESTAMP)`);
+
+    // polubienia
+    db.run(`CREATE TABLE IF NOT EXISTS likes ( user_id INTEGER, plant_id INTEGER, PRIMARY KEY (user_id, plant_id))`);
 
     // automatyczne utworzenie konta admina
     const adminPassword = 'admin123';
@@ -517,8 +540,17 @@ app.delete('/api/logs/:id', authenticate, (req, res) => {
 io.on('connection', (socket) => {
     console.log('Nowy klient WebSocket:', socket.id);
 
-    socket.on('identify', (userId) => {
-        // uzytkownik dolacza do swojego dedykowanego pokoju
+    socket.on('identify', (data) => { 
+        if (!data) return;
+
+        // wartosci z obiektu data, nazwa i id
+        const userId = data.userId;
+        const username = data.username;
+
+        socket.userId = userId;
+        socket.username = username;
+
+        // user dolacza do dedykowanego pokoju
         socket.join(`user_${userId}`);
 
         // admin dolacza do pokoju admins
@@ -526,7 +558,10 @@ io.on('connection', (socket) => {
             socket.join('admins');
             console.log("Administrator dołączył do pokoju adminów");
         }
-        console.log(`Zidentyfikowano użytkownika ID: ${userId}`);
+        
+        console.log(`Zidentyfikowano użytkownika ${username} ID: ${userId}`);
+
+        broadcastLeaderboard();
     });
 
     socket.on('get_active_chats', () => {
@@ -572,12 +607,55 @@ io.on('connection', (socket) => {
         });
     });
 
+    // NOWE FUNKCJONALNOSCI WEBSOCKET
+
+    // polubienie rosliny
+    socket.on('like_plant', (plantId) => {
+        const userId = socket.userId;
+        const username = socket.username || "Gość";
+
+        if (!userId) return;
+
+        db.get("SELECT * FROM likes WHERE user_id = ? AND plant_id = ?", [userId, plantId], (err, row) => {
+            if (!row) {
+                // polubienie
+                db.run("INSERT INTO likes (user_id, plant_id) VALUES (?, ?)", [userId, plantId], () => {
+                    // liczenie
+                    db.get("SELECT COUNT(*) as count FROM likes WHERE plant_id = ?", [plantId], (err, res) => {
+                        io.emit('update_likes', { plantId: plantId, count: res.count }); // update licznika dla wszystkich
+                        broadcastLeaderboard(); // aktualizacja leaderboardu
+
+                        // powiadomienie dla wlasciciela
+                        // czyja to roslina
+                        db.get("SELECT owner_id, name FROM plants WHERE id = ?", [plantId], (err, plant) => {
+                            // nie wysylamy powiadomienia samemu sobie
+                            if (plant && String(plant.owner_id) !== String(userId)) {
+                                io.to(`user_${plant.owner_id}`).emit('notification', {
+                                    type: 'like',
+                                    text: `Użytkownik ${username} polubił Twoją roślinę: ${plant.name} ❤️`
+                                });
+                            }
+                        });
+                    });
+                });
+            } else {
+                // usuniecie polubienia
+                db.run("DELETE FROM likes WHERE user_id = ? AND plant_id = ?", [userId, plantId], () => {
+                    db.get("SELECT COUNT(*) as count FROM likes WHERE plant_id = ?", [plantId], (err, res) => {
+                        io.emit('update_likes', { plantId: plantId, count: res.count });
+                    });
+                    broadcastLeaderboard();
+                });
+            }
+        });
+    });
+
     socket.on('disconnect', () => {
         console.log('Klient rozłączony:', socket.id);
     });
 });
 
-// DODANE FUNKCJONALNOSCI
+// NOWE FUNKCJONALNOSCI CRUD
 
 // READ -> pobranie danych jednej konkretnej rosliny
 app.get('/api/plants/:id', authenticate, (req, res) => {
@@ -603,8 +681,14 @@ app.put('/api/plants/:id/settings', authenticate, (req, res) => {
 
     if (minHumidity === undefined) return res.status(400).json({ error: "Brak danych" });
 
+    // walidacja minimalnej wilgotnosci
+    const val = parseInt(minHumidity);
+    if (val !== -1 && (val < 0 || val > 100)) {
+        return res.status(400).json({ error: "Nieprawidłowa wartość. Użyj 0-100 lub -1." });
+    }
+
     let sql = "UPDATE plants SET min_humidity = ? WHERE id = ?";
-    let params = [minHumidity, id];
+    let params = [val, id]; //
 
     if (req.user.role !== 'admin') {
         sql += " AND owner_id = ?";
@@ -615,8 +699,12 @@ app.put('/api/plants/:id/settings', authenticate, (req, res) => {
         if (err) return res.status(500).json({ error: "Błąd bazy danych" });
         if (this.changes === 0) return res.status(403).json({ error: "Brak uprawnień lub nie znaleziono rośliny." });
 
-        logSystemEvent(id, `Zmieniono próg alarmu wilgotności na: ${minHumidity}%`);
-        res.json({ success: true, minHumidity });
+        const msg = val === -1 
+            ? "Wyłączono alarm wilgotności." 
+            : `Zmieniono próg alarmu wilgotności na: ${val}%`;
+
+        logSystemEvent(id, msg);
+        res.json({ success: true, minHumidity: val });
     });
 });
 
@@ -661,6 +749,7 @@ app.post('/api/plants/:id/comments', authenticate, (req, res) => {
     
     if (!content) return res.status(400).json({ error: "Komentarz nie może być pusty." });
 
+    // zapis komentarza do bazy
     db.run("INSERT INTO comments (plant_id, user_id, username, content) VALUES (?, ?, ?, ?)",
         [id, req.user.userId, req.user.username, content],
         function(err) {
@@ -675,8 +764,23 @@ app.post('/api/plants/:id/comments', authenticate, (req, res) => {
                 timestamp: new Date()
             };
 
-            // wyslanie przez websocket ze jest nowy komentarz
+            // wyslanie komentarza przez websocket
             io.emit('plant_new_comment', newComment);
+
+            // powiadomienie o nowym komentarzu dla wlasciciela
+            db.get("SELECT owner_id, name FROM plants WHERE id = ?", [id], (err, plant) => {
+                if (err) console.error("Błąd bazy przy powiadomieniu:", err);
+
+                // nie powiadamy wlasciciela o jego wlasnym komentarzu
+                if (plant && String(plant.owner_id) !== String(req.user.userId)) {
+                    
+                    // wyslanie powiadomienia
+                    io.to(`user_${plant.owner_id}`).emit('notification', {
+                        type: 'msg',
+                        text: `Użytkownik ${req.user.username} skomentował Twoją roślinę "${plant.name}"`
+                    });
+                }
+            });
 
             res.json(newComment);
         }
@@ -690,8 +794,8 @@ app.put('/api/comments/:id', authenticate, (req, res) => {
 
     if (!content) return res.status(400).json({ error: "Treść wymagana" });
 
-    // czy komentarz tego uzytkownika czy admina
-    db.get("SELECT user_id FROM comments WHERE id = ?", [id], (err, row) => {
+    // dane komentarza
+    db.get("SELECT user_id, plant_id FROM comments WHERE id = ?", [id], (err, row) => {
         if (!row) return res.status(404).json({ error: "Nie znaleziono komentarza" });
         
         if (req.user.role !== 'admin' && String(row.user_id) !== String(req.user.userId)) {
@@ -700,10 +804,56 @@ app.put('/api/comments/:id', authenticate, (req, res) => {
 
         db.run("UPDATE comments SET content = ? WHERE id = ?", [content, id], function(err) {
             if (err) return res.status(500).json({ error: "Błąd edycji" });
+            
+            // wyslanie sygnalu ws ze edytowano komentarz
+            io.emit('plant_comment_updated', {
+                commentId: id,
+                plantId: row.plant_id,
+                content: content
+            });
+
             res.json({ success: true, content });
         });
     });
 });
+
+// READ -> pobierz rosliny wszystkich
+app.get('/api/community/plants', authenticate, (req, res) => {
+    const userId = req.user.userId;
+    
+    const sql = `
+        SELECT p.*, u.username as owner_name, 
+        (SELECT COUNT(*) FROM likes WHERE plant_id = p.id) as likes_count,
+        (SELECT COUNT(*) FROM likes WHERE plant_id = p.id AND user_id = ?) as is_liked_by_me
+        FROM plants p 
+        JOIN users u ON p.owner_id = u.id 
+        ORDER BY p.id DESC
+    `;
+    
+    db.all(sql, [userId], (err, rows) => {
+        if (err) return res.status(500).json({ error: "Błąd bazy" });
+        res.json(rows);
+    });
+});
+
+// wysylanie rankingu top 3 roslin
+function broadcastLeaderboard() {
+    const sql = `
+        SELECT p.id, p.name, u.username as owner_name, COUNT(l.user_id) as likes_count
+        FROM plants p
+        LEFT JOIN likes l ON p.id = l.plant_id
+        JOIN users u ON p.owner_id = u.id
+        GROUP BY p.id
+        ORDER BY likes_count DESC
+        LIMIT 3
+    `;
+
+    db.all(sql, [], (err, rows) => {
+        if (err) return console.error("Błąd rankingu:", err);
+        // wysylane do wszystkich
+        io.emit('update_leaderboard', rows);
+    });
+}
 
 // start serwera
 server.listen(PORT, () => {

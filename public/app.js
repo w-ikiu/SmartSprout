@@ -9,6 +9,13 @@ socket.on('connect', () => {
 let ROLE = localStorage.getItem('role');
 let USERNAME = localStorage.getItem('username');
 
+// kontener na powiadomienia
+if (!document.getElementById('notification-container')) {
+    const container = document.createElement('div');
+    container.id = 'notification-container';
+    document.body.appendChild(container);
+}
+
 // zamiast if(TOKEN) sprawdzamy sesję na serwerze
 checkSession();
 
@@ -522,15 +529,17 @@ document.getElementById('chatInput').addEventListener('keypress', function (e) {
 // inicjalizacja chatu
 function initChat() {
     const userId = localStorage.getItem('userId');
+    const currentUsername = localStorage.getItem('username');
+
     if (!userId) {
         console.error("FRONTEND BŁĄD: Brak ID użytkownika!");
         return;
     }
 
     // log do testow
-    console.log("FRONTEND: Inicjalizuję czat dla ID:", userId);
+    console.log("FRONTEND: Inicjalizuję czat dla:", currentUsername, "ID:", userId);
 
-    socket.emit('identify', userId);
+    socket.emit('identify', { userId: userId, username: currentUsername });
 
     // czyszczenie starych listenerow
     socket.off('admin_new_message');
@@ -543,26 +552,52 @@ function initChat() {
 
     // live dane od roslin
     socket.on('plant_update', (data) => {
-        console.log("LIVE DATA:", data);
 
-        // zwykly uzytkownik
+        // aktualizacja roslin w spolecznosci
+        const tempSpan = document.getElementById(`comm-temp-${data.plantId}`);
+        const humSpan = document.getElementById(`comm-hum-${data.plantId}`);
+        const barDiv = document.getElementById(`comm-bar-${data.plantId}`);
+
+        if (tempSpan && humSpan) {
+            // aktualizacja liczb
+            tempSpan.innerText = data.temp.toFixed(1);
+            humSpan.innerText = data.humidity;
+
+            // aktualizacja paska wilgotności
+            if (barDiv) {
+                barDiv.style.width = `${data.humidity}%`;
+                
+                // aktualizacja koloru paska
+                barDiv.className = 'humidity-bar-fill';
+                if (data.humidity < 10) barDiv.classList.add('bar-red');
+                else if (data.humidity < 30) barDiv.classList.add('bar-orange');
+                else barDiv.classList.add('bar-green');
+            }
+        }
+
+        // aktualizacja roslin uzytkownika
+
+        // sprawdzamy czy uzytkownik jest w zakladce moje rosliny
+        const isMyPlantsTabActive = document.getElementById('communityContainer').style.display === 'none';
+
+        // zwykly user
         if (ROLE !== 'admin') {
-            // czy cos jest w wyszukiwarce zeby nie odswiezyc wyszukan
-            const searchValue = document.getElementById('searchPlantInput').value;
-            // odswiezenie listy
-            loadPlants(searchValue ? `?search=${searchValue}` : '');
+            if (isMyPlantsTabActive) {
+                const searchValue = document.getElementById('searchPlantInput').value;
+                loadPlants(searchValue ? `?search=${searchValue}` : '');
+            }
         }
         
-        // admin
+        // jesli admin
         else if (ROLE === 'admin') {
-            // admina odswiezamy jesli aktualnie patrzy na uzytkownika do ktorego nalezy ta roslina
+            // admin odswieza widok jesli patrzy na uzytkownika do ktoego nalezy dana rosilna
             if (currentViewedUserId && String(data.ownerId) === String(currentViewedUserId)) {
-                 const searchValue = document.getElementById('searchPlantInput').value;
+                const searchValue = document.getElementById('searchPlantInput').value;
                 
-                 let query = `?userId=${currentViewedUserId}`;
-                 if (searchValue) query += `&search=${searchValue}`;
-                 
-                 loadPlants(query);
+                let query = `?userId=${currentViewedUserId}`;
+                if (searchValue) query += `&search=${searchValue}`;
+                
+                loadPlants(query);
             }
         }
     });
@@ -630,13 +665,13 @@ function initChat() {
         socket.on('admin_new_message', (msg) => {
             const currentTarget = document.getElementById('targetUserId').value;
             
-            console.log("Otrzymano wiadomość od:", msg.fromId, "Aktualnie wybrany:", currentTarget);
-
+            // jesli admin ma otwarty chat z ta osoba
             if (currentTarget && String(currentTarget) === String(msg.fromId)) {
                 appendMessage(msg.content, 'other');
             } else {
-                // jesli admin nie ma otwartego czatu z dana osoba
-                alert(`Nowa wiadomość od ${msg.fromName}`);
+                // powiadomienie
+                showNotification(`Nowa wiadomość od ${msg.fromName}`, 'msg');
+                
                 socket.emit('get_active_chats');
             }
         });
@@ -660,8 +695,15 @@ function initChat() {
         });
 
         socket.on('new_message', (msg) => {
-            // type to other bo to wiadomosc od admina
+            // dymek czatu
             appendMessage(msg.content, 'other'); 
+            
+            // czy okno zamkniete
+            const chatWindow = document.getElementById('chatWindow');
+            if (chatWindow.style.display === 'none') {
+                // jak tak pokazujemy powiadomienie
+                showNotification(`Nowa wiadomość od Admina: ${msg.content.substring(0,20)}...`, 'msg');
+            }
         });
     }
 }
@@ -743,7 +785,7 @@ async function deleteLog(logId) {
     }
 }
 
-// nowe funkcjonalnosci CRUD
+// NOWE FUNKCJONALNOSCI
 
 let currentSettingsPlantId = null;
 
@@ -775,19 +817,28 @@ function closeSettingsModal() {
 
 // zapis nowych ustawien rosliny
 async function savePlantSettings() {
-    const newVal = document.getElementById('modalMinHumidity').value;
+    const input = document.getElementById('modalMinHumidity');
+    const newVal = parseInt(input.value);
     
-    const response = await fetch(`/api/plants/${currentSettingsPlantId}/settings`, {
+    // walidacja -> mozna wpisac wartosci od -1 do 100 (-1 - roslina nie potrzebuje podlewania i wartosci od 0-100)
+    if (newVal !== -1 && (newVal < 0 || newVal > 100 || isNaN(newVal))) {
+        alert("Błędna wartość! \nWpisz 0-100 (%) lub -1 aby wyłączyć alarm.");
+        return; // Przerywamy funkcję, nic nie wysyłamy
+    }
+
+    // wysylanie zapytania o zmiane
+    const res = await fetch(`/api/plants/${currentSettingsPlantId}/settings`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ minHumidity: newVal })
     });
 
-    if (response.ok) {
+    if (res.ok) {
         alert("Zapisano pomyślnie!");
         closeSettingsModal();
     } else {
-        alert("Błąd zapisu.");
+        const data = await res.json();
+        alert(data.error || "Błąd zapisu.");
     }
 }
 
@@ -814,3 +865,324 @@ window.onclick = function(event) {
         modal.style.display = "none";
     }
 }
+
+// komentarze
+
+let currentCommentPlantId = null;
+
+// otwieranie modala i pobieranie komentarzy
+async function openComments(plantId, plantName) {
+    currentCommentPlantId = plantId;
+    document.getElementById('commentsPlantName').innerText = `💬 ${plantName}`;
+    document.getElementById('commentsModal').style.display = 'flex';
+    
+    loadComments(plantId);
+}
+
+function closeCommentsModal() {
+    document.getElementById('commentsModal').style.display = 'none';
+}
+
+// pobieranie listy (READ)
+async function loadComments(plantId) {
+    const list = document.getElementById('commentsList');
+    list.innerHTML = '<p style="text-align:center;">Ładowanie...</p>';
+
+    const res = await fetch(`/api/plants/${plantId}/comments`);
+    const comments = await res.json();
+
+    list.innerHTML = '';
+    if (comments.length === 0) {
+        list.innerHTML = '<p style="color:#aaa; text-align:center;">Brak komentarzy.</p>';
+        return;
+    }
+
+    const currentUserId = localStorage.getItem('userId');
+
+    comments.forEach(c => {
+        // czy moj komentarz
+        const isMine = String(c.user_id) === String(currentUserId);
+        const editBtn = isMine ? `<small style="color:blue; cursor:pointer; margin-left:10px;" onclick="editComment(${c.id}, '${c.content}')">Edytuj</small>` : '';
+
+        const div = document.createElement('div');
+        div.style.borderBottom = '1px solid #eee';
+        div.style.padding = '8px 0';
+        div.innerHTML = `
+            <div style="font-size:12px; color:#888;">
+                <b>${c.username}</b> <span style="float:right;">${new Date(c.timestamp).toLocaleTimeString()}</span>
+            </div>
+            <div style="font-size:14px; margin-top:4px; color:#333;">
+                ${c.content} ${editBtn}
+            </div>
+        `;
+        list.appendChild(div);
+    });
+    
+    // scroll na dol
+    list.scrollTop = list.scrollHeight;
+}
+
+// dodawanie komentarza (CREATE)
+async function addComment() {
+    const input = document.getElementById('newCommentInput');
+    const content = input.value;
+    if (!content) return;
+
+    await fetch(`/api/plants/${currentCommentPlantId}/comments`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content })
+    });
+
+    input.value = '';
+    loadComments(currentCommentPlantId); // odswiezenie listy
+}
+
+// edycja komentarza (UPDATE)
+async function editComment(commentId, oldContent) {
+    const newContent = prompt("Edytuj komentarz:", oldContent);
+    if (!newContent || newContent === oldContent) return;
+
+    const res = await fetch(`/api/comments/${commentId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ content: newContent })
+    });
+
+    if (res.ok) {
+        loadComments(currentCommentPlantId);
+    } else {
+        alert("Błąd edycji.");
+    }
+}
+
+// live update kiedy ktos inny skomentuje
+socket.on('plant_new_comment', (data) => {
+    // odswiezenie tylko jesli mam otwarte okno TEJ rosliny
+    if (document.getElementById('commentsModal').style.display === 'flex' && 
+        String(currentCommentPlantId) === String(data.plant_id)) {
+        loadComments(currentCommentPlantId);
+    }
+});
+
+// live update przy zmianie komentarza
+socket.on('plant_comment_updated', (data) => {
+    // czy komentarze otwarte
+    const modal = document.getElementById('commentsModal');
+    
+    if (modal.style.display === 'flex' && String(currentCommentPlantId) === String(data.plantId)) {
+        console.log("Komentarz edytowany, odświeżam listę...");
+        loadComments(currentCommentPlantId); // zaladowanie ponownie
+    }
+});
+
+// spolecznosc
+
+// przelaczanie zakladek
+function switchTab(tab) {
+    const myContainer = document.getElementById('userPanel');
+    const myList = document.getElementById('plantsList');
+    const commContainer = document.getElementById('communityContainer');
+    const searchBar = document.getElementById('plantSearchContainer');
+    const leaderboard = document.getElementById('leaderboardContainer');
+
+    if (tab === 'my') {
+        // moje
+        myContainer.style.display = 'flex';
+        myList.style.display = 'grid';
+        searchBar.style.display = 'block';
+        commContainer.style.display = 'none';
+        commContainer.style.display = 'none';
+        if (leaderboard) leaderboard.style.display = 'none';
+        
+        document.getElementById('btnTabMy').style.background = '#2E7D32';
+        document.getElementById('btnTabCommunity').style.background = '#aaa';
+        
+        loadPlants();
+    } else {
+        // spolecznosc
+        myContainer.style.display = 'none';
+        myList.style.display = 'none';
+        searchBar.style.display = 'none';
+        commContainer.style.display = 'block';
+        commContainer.style.display = 'block';
+        if (leaderboard) leaderboard.style.display = 'block';
+
+        document.getElementById('btnTabMy').style.background = '#aaa';
+        document.getElementById('btnTabCommunity').style.background = '#2E7D32';
+
+        loadCommunityPlants();
+    }
+}
+
+// pobranie roslin innych (READ)
+async function loadCommunityPlants() {
+    const list = document.getElementById('communityList');
+    list.innerHTML = '<p style="text-align:center; width:200%;">Ładowanie ...</p>';
+
+    try {
+        const res = await fetch('/api/community/plants');
+        if (!res.ok) throw new Error("Błąd pobierania");
+        
+        const plants = await res.json();
+        list.innerHTML = '';
+
+        if (plants.length === 0) {
+            list.innerHTML = '<p>Brak roślin w społeczności.</p>';
+            return;
+        }
+
+        plants.forEach(p => {
+            const div = document.createElement('div');
+            div.className = 'plant-item';
+
+            const isLiked = p.is_liked_by_me > 0;
+            const likeBtnClass = isLiked ? 'btn-like-filled' : 'btn-like-outline';
+            const likeIcon = isLiked ? '❤️' : '🤍';
+            
+            // HTML kafelka spolecznosci
+            div.innerHTML = `
+                <div style="width: 100%;">
+                    <div class="plant-header">
+                        <span class="plant-name">🌱 ${p.name}</span>
+                    </div>
+                    <small style="color: #2E7D32; font-weight: bold;">Właściciel: ${p.owner_name}</small>
+                    
+                    <div class="plant-stats" style="margin-top: 10px;">
+                        <div class="stat-row">
+                            <span>🌡️ <b id="comm-temp-${p.id}">${p.temperature ? p.temperature.toFixed(1) : '--'}</b>°C</span>
+                            <span>💧 <b id="comm-hum-${p.id}">${p.humidity}</b>%</span>
+                        </div>
+
+                        <div class="humidity-bar-container" style="margin-top:10px;">
+                            <div id="comm-bar-${p.id}" class="humidity-bar-fill bar-green" style="width: ${p.humidity}%;"></div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="plant-actions" style="margin-top: 15px;">
+                    <button onclick="openComments(${p.id}, '${p.name} (${p.owner_name})')" class="plant-btn" style="background-color: #7337b8;">
+                        <span>💬</span> Komentuj
+                    </button>
+                    
+                    <button onclick="likePlant(${p.id})" id="like-btn-${p.id}" class="plant-btn ${likeBtnClass}">
+                        <span id="like-icon-${p.id}">${likeIcon}</span> 
+                        <span id="likes-count-${p.id}">${p.likes_count || 0}</span>
+                    </button>
+                </div>
+            `;
+            list.appendChild(div);
+        });
+    } catch (e) {
+        console.error(e);
+        list.innerHTML = '<p>Błąd ładowania.</p>';
+    }
+}
+
+// polubienie rosliny
+function likePlant(plantId) {
+    // sygnal do serwera ze wysylamy polubienie
+    socket.emit('like_plant', plantId);
+    
+    const btn = document.getElementById(`like-btn-${plantId}`);
+    const icon = document.getElementById(`like-icon-${plantId}`);
+    
+    // zmiana koloru serca
+    if (btn.classList.contains('btn-like-filled')) {
+        btn.classList.remove('btn-like-filled');
+        btn.classList.add('btn-like-outline');
+        icon.innerText = '🤍';
+    } else {
+        btn.classList.remove('btn-like-outline');
+        btn.classList.add('btn-like-filled');
+        icon.innerText = '❤️';
+    }
+}
+
+// odbieranie aktualizacji licznika
+socket.on('update_likes', (data) => {
+    // data = { plantId: 123, count: 5 }
+    
+    // szukamy licznika tej konkretnej rosliny
+    const counterElement = document.getElementById(`likes-count-${data.plantId}`);
+    
+    if (counterElement) {
+        // aktualizacja liczby polubien
+        counterElement.innerText = data.count;
+        
+        counterElement.style.transition = "0.2s";
+        counterElement.style.transform = "scale(1.5)";
+        setTimeout(() => counterElement.style.transform = "scale(1)", 200);
+    }
+});
+
+// wyswietlanie powiadomien
+function showNotification(text, type = 'info') {
+    const container = document.getElementById('notification-container');
+    const toast = document.createElement('div');
+    toast.className = `toast ${type}`;
+    
+    // zalezy jakie powiadomienie - inna ikona
+    let icon = '🔔';
+    if (type === 'like') icon = '❤️';
+    if (type === 'msg') icon = '💬';
+    if (type === 'warning') icon = '⚠️';
+
+    toast.innerHTML = `<span style="font-size:18px;">${icon}</span> <span>${text}</span>`;
+    
+    container.appendChild(toast);
+
+    // usuwanie po 4 sekundach
+    setTimeout(() => {
+        toast.style.opacity = '0';
+        toast.style.transform = 'translateX(100%)';
+        toast.style.transition = 'all 0.5s';
+        setTimeout(() => toast.remove(), 500);
+    }, 4000);
+}
+
+socket.on('update_leaderboard', (topPlants) => {
+    const container = document.getElementById('leaderboardList');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (topPlants.length === 0) {
+        container.innerHTML = '<p>Brak polubień.</p>';
+        return;
+    }
+
+    const medals = ['🥇', '🥈', '🥉'];
+
+    topPlants.forEach((p, index) => {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.justifyContent = 'space-between';
+        row.style.alignItems = 'center';
+        row.style.padding = '10px';
+        row.style.background = '#f9f9f9';
+        row.style.borderRadius = '10px';
+        row.style.borderLeft = index === 0 ? '5px solid #FFD700' : '5px solid #eee';
+
+        row.innerHTML = `
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span style="font-size: 1.5em;">${medals[index] || (index + 1) + '.'}</span>
+                <div>
+                    <strong style="font-size: 1.1em;">${p.name}</strong>
+                    <br>
+                    <small style="color:#666;">Właściciel: ${p.owner_name}</small>
+                </div>
+            </div>
+            <div style="font-weight: bold; color: #E91E63;">
+                ❤️ ${p.likes_count}
+            </div>
+        `;
+        container.appendChild(row);
+    });
+});
+
+// nasluchiwanie powiadomien z serwera
+socket.on('notification', (data) => {
+    // data = { type: 'like', text: 'Ktoś polubił...' }
+    showNotification(data.text, data.type);
+});
