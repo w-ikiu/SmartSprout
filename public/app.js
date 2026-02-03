@@ -695,13 +695,13 @@ function initChat() {
         });
 
         socket.on('new_message', (msg) => {
-            // 1. Zawsze wstawiamy dymek do czatu (nawet jak ukryty)
+            // dymek czatu
             appendMessage(msg.content, 'other'); 
             
-            // 2. Sprawdzamy czy okno jest zamknięte
+            // czy okno zamkniete
             const chatWindow = document.getElementById('chatWindow');
             if (chatWindow.style.display === 'none') {
-                // Jeśli tak -> wyświetlamy powiadomienie
+                // jak tak pokazujemy powiadomienie
                 showNotification(`Nowa wiadomość od Admina: ${msg.content.substring(0,20)}...`, 'msg');
             }
         });
@@ -964,6 +964,7 @@ function switchTab(tab) {
     const myList = document.getElementById('plantsList');
     const commContainer = document.getElementById('communityContainer');
     const searchBar = document.getElementById('plantSearchContainer');
+    const leaderboard = document.getElementById('leaderboardContainer');
 
     if (tab === 'my') {
         // moje
@@ -971,6 +972,8 @@ function switchTab(tab) {
         myList.style.display = 'grid';
         searchBar.style.display = 'block';
         commContainer.style.display = 'none';
+        commContainer.style.display = 'none';
+        if (leaderboard) leaderboard.style.display = 'none';
         
         document.getElementById('btnTabMy').style.background = '#2E7D32';
         document.getElementById('btnTabCommunity').style.background = '#aaa';
@@ -982,6 +985,8 @@ function switchTab(tab) {
         myList.style.display = 'none';
         searchBar.style.display = 'none';
         commContainer.style.display = 'block';
+        commContainer.style.display = 'block';
+        if (leaderboard) leaderboard.style.display = 'block';
 
         document.getElementById('btnTabMy').style.background = '#aaa';
         document.getElementById('btnTabCommunity').style.background = '#2E7D32';
@@ -1115,6 +1120,46 @@ function showNotification(text, type = 'info') {
         setTimeout(() => toast.remove(), 500);
     }, 4000);
 }
+
+socket.on('update_leaderboard', (topPlants) => {
+    const container = document.getElementById('leaderboardList');
+    if (!container) return;
+
+    container.innerHTML = '';
+
+    if (topPlants.length === 0) {
+        container.innerHTML = '<p>Brak polubień.</p>';
+        return;
+    }
+
+    const medals = ['🥇', '🥈', '🥉'];
+
+    topPlants.forEach((p, index) => {
+        const row = document.createElement('div');
+        row.style.display = 'flex';
+        row.style.justifyContent = 'space-between';
+        row.style.alignItems = 'center';
+        row.style.padding = '10px';
+        row.style.background = '#f9f9f9';
+        row.style.borderRadius = '10px';
+        row.style.borderLeft = index === 0 ? '5px solid #FFD700' : '5px solid #eee';
+
+        row.innerHTML = `
+            <div style="display:flex; align-items:center; gap:10px;">
+                <span style="font-size: 1.5em;">${medals[index] || (index + 1) + '.'}</span>
+                <div>
+                    <strong style="font-size: 1.1em;">${p.name}</strong>
+                    <br>
+                    <small style="color:#666;">Właściciel: ${p.owner_name}</small>
+                </div>
+            </div>
+            <div style="font-weight: bold; color: #E91E63;">
+                ❤️ ${p.likes_count}
+            </div>
+        `;
+        container.appendChild(row);
+    });
+});
 
 // nasluchiwanie powiadomien z serwera
 socket.on('notification', (data) => {
